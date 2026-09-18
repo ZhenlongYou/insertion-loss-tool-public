@@ -2,12 +2,23 @@ name: Build InsertionLossTool Windows onefile
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish the verified Windows ZIP as a GitHub Release
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: Release tag to create when publish_release is enabled
+        required: false
+        default: v0.5.0
+        type: string
   push:
     branches:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: insertion-loss-tool-windows-${{ github.ref }}
@@ -95,3 +106,26 @@ jobs:
             dist/InsertionLossTool-*-windows-x64.zip.sha256.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish verified ZIP as GitHub Release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ARCHIVE_NAME: ${{ steps.verify.outputs.archive }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:RELEASE_TAG.Trim()
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            throw "release_tag must not be empty."
+          }
+          gh release create $tag `
+            "dist\$($env:ARCHIVE_NAME)" `
+            "dist\$($env:ARCHIVE_NAME).sha256.txt" `
+            --repo $env:REPOSITORY `
+            --target $env:TARGET_SHA `
+            --title "InsertionLossTool $tag - Windows x64" `
+            --notes "Verified all-in-one Windows x64 package built by GitHub Actions from $env:TARGET_SHA. The ZIP contains a single InsertionLossTool.exe and the adjacent asset is its SHA-256 manifest."
