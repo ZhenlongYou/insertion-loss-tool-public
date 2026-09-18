@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "units": {
+    "frequency": "Hz",
+    "magnitude": "dB",
+    "pixels": "image pixel coordinates"
+  },
+  "cases": [
+    {
+      "id": "synthetic-two-color-linear-curves",
+      "class": "exact",
+      "purpose": "Recover a known plot rectangle and two analytically defined colored curves.",
+      "image": {
+        "width": 640,
+        "height": 480,
+        "plot_box": [80, 50, 560, 410],
+        "grid_divisions": 10
+      },
+      "axis": {
+        "start_hz": 1000000000,
+        "stop_hz": 5000000000,
+        "y_max_db": 0.0,
+        "y_min_db": -40.0
+      },
+      "curves": [
+        {
+          "color": "Dark blue",
+          "rgb": [36, 76, 206],
+          "formula": "-2 - 8*x_normalized"
+        },
+        {
+          "color": "Red",
+          "rgb": [216, 54, 64],
+          "formula": "-5 - 20*x_normalized"
+        }
+      ],
+      "oracle": "Plot geometry and curve equations are generated independently in the test.",
+      "tolerance": {
+        "plot_edge_px": 3,
+        "magnitude_db": 0.75
+      }
+    },
+    {
+      "id": "user-sdd21-marker",
+      "class": "realistic-user-artifact",
+      "sha256": "67e3132236982c01296ba0e3aec3abf33c6a3a484ca6021ebb9bcf32a410b67a",
+      "axis": {
+        "start_hz": 10000000,
+        "stop_hz": 18000000000,
+        "y_max_db": 1.0,
+        "y_min_db": -9.0
+      },
+      "marker": {
+        "frequency_hz": 9571270000,
+        "magnitude_db": [-2.94, -3.0]
+      },
+      "oracle": "Values printed in the user-supplied plot; tolerance includes rasterization and line overlap.",
+      "tolerance_db": 0.5
+    },
+    {
+      "id": "user-sdd11-markers",
+      "class": "realistic-user-artifact",
+      "sha256": "985af4ad9491af7219cb0916e08e4ccde0c0bf7ee576b438fc9383d8217cad70",
+      "axis": {
+        "start_hz": 10000000,
+        "stop_hz": 18000000000,
+        "y_max_db": 50.0,
+        "y_min_db": -50.0
+      },
+      "markers": [
+        {"frequency_hz": 3276950000, "magnitude_db": [-20.25, -20.72]},
+        {"frequency_hz": 16584320000, "magnitude_db": [-9.9, -10.47]}
+      ],
+      "oracle": "Values printed in the user-supplied plot; tolerance includes rasterization, marker lines, and trace overlap.",
+      "tolerance_db": 3.0
+    }
+  ]
+}

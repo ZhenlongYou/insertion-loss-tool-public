@@ -1,0 +1,1 @@
+{"partition":"boundary","input":"known_failure.s2p","targets":"2.5GHz:1,3.5GHz:1","pairs":"S21,S12","insert_targets":false,"expected":"truthful constrained report"}

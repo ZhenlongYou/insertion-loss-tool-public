@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "units": {"frequency": "Hz", "magnitude": "dB", "phase": "degree"},
+  "cases": [
+    {
+      "id": "intersection-different-resolution",
+      "class": "exact",
+      "purpose": "Build one uniform grid over the shared interval without claiming finer resolution than the coarsest source.",
+      "curves": [
+        {"parameter": "SDD21", "frequency_hz": [10000000, 20000000, 30000000, 40000000, 50000000], "magnitude_db": [-1, -1.1, -1.2, -1.3, -1.4]},
+        {"parameter": "SCD21", "frequency_hz": [20000000, 40000000, 60000000], "magnitude_db": [-40, -35, -30]}
+      ],
+      "policy": "intersection_native",
+      "expected_frequency_hz": [20000000, 50000000],
+      "oracle": "Hand interval intersection with an endpoint-preserving step no finer than the coarsest 20 MHz source spacing",
+      "tolerance": "exact integer-valued Hz"
+    },
+    {
+      "id": "rounding-noise-deduplication",
+      "class": "conditioning",
+      "purpose": "Treat sub-millihertz binary rounding at GHz scale as one calibrated knot.",
+      "curves": [
+        {"parameter": "S11", "frequency_hz": [1000000000, 2000000000, 3000000000], "magnitude_db": [-1, -2, -3]},
+        {"parameter": "S21", "frequency_hz": [1000000000, 2000000000.0001, 3000000000], "magnitude_db": [-1, -2, -3]}
+      ],
+      "policy": "intersection_native",
+      "expected_point_count": 3,
+      "oracle": "Relative frequency tolerance 1e-12, below datasheet calibration precision",
+      "tolerance": "1e-12 relative"
+    },
+    {
+      "id": "disjoint-coverage",
+      "class": "invalid",
+      "purpose": "Reject curves with no common frequency range.",
+      "curves": [
+        {"parameter": "SDD11", "frequency_hz": [10000000, 20000000], "magnitude_db": [-10, -11]},
+        {"parameter": "SCC11", "frequency_hz": [30000000, 40000000], "magnitude_db": [-20, -21]}
+      ],
+      "policy": "intersection_native",
+      "expected_error": "所选曲线没有共同频率范围",
+      "oracle": "Interval intersection is empty",
+      "tolerance": "not applicable"
+    },
+    {
+      "id": "linear-db-resampling",
+      "class": "exact",
+      "purpose": "Interpolate magnitude in dB without extrapolation.",
+      "source": {"parameter": "SCD21", "frequency_hz": [1000000000, 2000000000, 3000000000], "magnitude_db": [-40, -30, -20]},
+      "target_frequency_hz": [1000000000, 1500000000, 2500000000, 3000000000],
+      "expected_magnitude_db": [-40, -35, -25, -20],
+      "oracle": "Piecewise-linear hand calculation",
+      "tolerance": "1e-12 dB"
+    },
+    {
+      "id": "user-datasheet-images-20260830",
+      "class": "realistic-user-artifact",
+      "purpose": "Exercise wide single-plot and tall two-plot preview layouts with mixed-mode labels.",
+      "artifacts": [
+        {"sha256": "67e3132236982c01296ba0e3aec3abf33c6a3a484ca6021ebb9bcf32a410b67a", "width": 842, "height": 650, "labels": ["SDD21"]},
+        {"sha256": "985af4ad9491af7219cb0916e08e4ccde0c0bf7ee576b438fc9383d8217cad70", "width": 826, "height": 648, "labels": ["SDD11"]},
+        {"sha256": "ef63a60bb6a0e06f514aa59f3279eeacff1598c98c9b77d6a6bfb41ee9dc5031", "width": 820, "height": 1366, "labels": ["SCC11", "SCD21"]}
+      ],
+      "axis": {"start_hz": 10000000, "stop_hz": 18000000000, "step_hz": 10000000},
+      "oracle": "User-supplied visible labels and printed sweep annotations; not curve ground truth",
+      "tolerance": "manual visual classification only"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "scope_statement": "Cross-vendor product-manual plot detection and physical trace identity.",
+  "escaped_defects": [
+    {
+      "id": "CROSS-VENDOR-RECOVERY-001",
+      "acceptance_id": "REQ-CROSS-VENDOR-RECOVERY-001",
+      "user_symptom": "Short, pale, dotted, or black-bordered plots fail detection; antialias shades create a false trace or hide a physical trace.",
+      "discovered_via": "three-vendor product-manual corpus",
+      "failure_mechanism": "The detector required five medium-gray rows and the tracker treated raster shades as independent identities without a geometric alias check.",
+      "red_green_pair_id": "PAIR-CROSS-VENDOR-RECOVERY-001",
+      "regression_test_id": "CROSS-VENDOR-RECOVERY",
+      "public_path_rerun_id": "real-product-image-path",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-002",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-002",
+      "user_symptom": "A product plot is visible but the interface reports zero detected traces and only asks for axis review, so the user cannot tell whether recognition succeeded.",
+      "discovered_via": "user screenshot of the public Image to S-Parameter page",
+      "failure_mechanism": "Trace recovery was gated behind complete OCR axis calibration, and the rendered interface had no pre-calibration candidate state.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-002",
+      "regression_test_id": "test_axis_review_still_exposes_trace_candidates_in_the_image_overlay",
+      "public_path_rerun_id": "real-product-preview-and-renderer-path",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-003",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-003",
+      "user_symptom": "Positive insertion-loss plots and traces from images with different start, stop, and resolution cannot be reliably mapped and exported together.",
+      "discovered_via": "cross-vendor Samtec, JAE, and Rosenberger product-plot workflow",
+      "failure_mechanism": "The UI assumed negative S-parameter dB axes only, and validation stopped at trace counting instead of exercising mapping, common-grid interpolation, Touchstone generation, and reread.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-003",
+      "regression_test_id": "probe_product_workflow",
+      "public_path_rerun_id": "cross-vendor-image-map-generate-reread",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-004",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-004",
+      "user_symptom": "A near-0 dB transmission trace can fail export even when unused ports are intended to be ideally matched.",
+      "discovered_via": "JAE RF plus Rosenberger end-to-end generation",
+      "failure_mechanism": "The previous -80 dB fallback was tiny but nonzero, so its combination with a unity transmission could exceed the sampled passivity limit after rounding.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-004",
+      "regression_test_id": "test_exact_matched_fallback_allows_a_zero_db_transmission_trace",
+      "public_path_rerun_id": "cross-vendor-image-map-generate-reread",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-005",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-005",
+      "user_symptom": "Both 0/5/0.1 and 0GHz/5GHz/0.1GHz are rejected for a linear plot whose X axis visibly starts at DC.",
+      "discovered_via": "user screenshot of Samtec p9 in the public Image to S-Parameter page",
+      "failure_mechanism": "The image form reused a generic strictly-positive parser and treated unitless entries as Hz even though Touchstone and the linear digitizer support DC.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-005",
+      "regression_test_id": "probe_dc_frequency_workflow",
+      "public_path_rerun_id": "real-samtec-p9-dc-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-006",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-006",
+      "user_symptom": "Some Wilder VNA traces are detected only from the middle of the plot, with the first half missing.",
+      "discovered_via": "user rerun of Wilder 910-0077-000 Rev E Figures 33 and 36",
+      "failure_mechanism": "A few steep notch transitions split one physical hue into continuity fragments; the conservative hue fallback then retained only the longest fragment even though a unique same-hue path spanned the plot.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-006",
+      "regression_test_id": "probe_unique_hue_full_span",
+      "public_path_rerun_id": "real-wilder-full-span-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-007",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-007",
+      "user_symptom": "Wilder Figure 36 Trace 4 appears full-width but switches between two physical blue-family curves.",
+      "discovered_via": "user visual review of the public Image to S-Parameter overlay",
+      "failure_mechanism": "A hue-wide weighted median erased trace identity: numerous cross-path jumps incorrectly satisfied the old fallback condition.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-007",
+      "regression_test_id": "probe_ambiguous_hue_identity",
+      "public_path_rerun_id": "real-wilder-trace-identity-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-008",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-008",
+      "user_symptom": "After the first Trace 4 repair, the real Wilder Figure 36 overlay still contains isolated columns that borrow the other blue trace; same-colour in-plot annotation can also replace part of a physical path.",
+      "discovered_via": "user second visual review of the public Image to S-Parameter overlay",
+      "failure_mechanism": "The joint tracker forced both identities to consume the only remaining blue observation for short missing-sample runs, while the single-hue fallback admitted short same-colour annotation runs. The previous p95-only gate hid these sparse but severe errors because they occupied less than five percent of the trace.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-008",
+      "regression_test_id": "probe_ambiguous_hue_identity",
+      "public_path_rerun_id": "real-wilder-trace-identity-workflow-v3",
+      "state": "verified"
+    }
+  ]
+}

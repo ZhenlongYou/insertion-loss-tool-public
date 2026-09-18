@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "copyright_boundary": "Vendor raster crops remain local-only and are identified by hashes; this repository stores no vendor images.",
+  "axis_for_trace_count_probe": {
+    "start_hz": 1.0,
+    "stop_hz": 40000000000.0,
+    "y_min_db": -50.0,
+    "y_max_db": 0.0
+  },
+  "cases": [
+    {
+      "id": "samtec-cjt-c28s-p6",
+      "file": "samtec-p6-insertion-v2.png",
+      "sha256": "4a471d75f6753b3fa5980bd904372847d48dfb74aac6d61576a1e68440d39f6e",
+      "size": [1030, 430],
+      "expected_plot_box": [55, 52, 972, 362],
+      "expected_trace_count": 2,
+      "calibration": {"start": "10MHz", "stop": "5GHz", "step": "10MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -4.0, "y_convention": "magnitude"},
+      "source": "https://suddendocs.samtec.com/testreports/rfc-report_cjt-c28s_web.pdf"
+    },
+    {
+      "id": "samtec-cjt-c28s-p7",
+      "file": "samtec-p7-insertion-v2.png",
+      "sha256": "66011fcc4da95d05ca516a53ca6cae9c88bb412d79de64eac36b11854e38de33",
+      "size": [1030, 430],
+      "expected_plot_box": [55, 54, 972, 300],
+      "expected_trace_count": 2,
+      "calibration": {"start": "10MHz", "stop": "5GHz", "step": "10MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -4.0, "y_convention": "magnitude"},
+      "source": "https://suddendocs.samtec.com/testreports/rfc-report_cjt-c28s_web.pdf"
+    },
+    {
+      "id": "samtec-cjt-c28s-p8",
+      "file": "samtec-p8-insertion-v2.png",
+      "sha256": "2086730b8a561a52b1619072f97f25b95b5dd6ad7202b7a2f00807d336dde6c0",
+      "size": [1030, 430],
+      "expected_plot_box": [55, 55, 972, 276],
+      "expected_trace_count": 2,
+      "calibration": {"start": "10MHz", "stop": "5GHz", "step": "10MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -3.0, "y_convention": "magnitude"},
+      "source": "https://suddendocs.samtec.com/testreports/rfc-report_cjt-c28s_web.pdf"
+    },
+    {
+      "id": "samtec-cjt-c28s-p9",
+      "file": "samtec-p9-insertion-v2.png",
+      "sha256": "6ea570fa193fe71b299fe9ee26f3ad7537c6c61c95f87763c804471bfd1a570e",
+      "size": [1030, 430],
+      "expected_plot_box": [55, 36, 973, 265],
+      "expected_trace_count": 2,
+      "calibration": {"start": "0", "stop": "5", "step": "0.1", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -6.0, "y_convention": "magnitude"},
+      "source": "https://suddendocs.samtec.com/testreports/rfc-report_cjt-c28s_web.pdf"
+    },
+    {
+      "id": "samtec-cjt-c28s-p10",
+      "file": "samtec-p10-insertion-v2.png",
+      "sha256": "2ac15f779ab0248a00182b26049fbccaae1e2a51406b69b27fa411941ff86e92",
+      "size": [1030, 430],
+      "expected_plot_box": [55, 88, 972, 338],
+      "expected_trace_count": 1,
+      "calibration": {"start": "10MHz", "stop": "5GHz", "step": "10MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -6.0, "y_convention": "magnitude"},
+      "source": "https://suddendocs.samtec.com/testreports/rfc-report_cjt-c28s_web.pdf"
+    },
+    {
+      "id": "wilder-910-0077-fig33",
+      "file": "wilder-910-0077-fig33.png",
+      "sha256": "acd190c16fb6907adbd7027dcbe3f5dad5acd645ed009cefcabcf8db519eb7a2",
+      "size": [1760, 1380],
+      "expected_plot_box": [190, 292, 1463, 1230],
+      "expected_trace_count": 4,
+      "preview_mode": "auto-axis",
+      "expected_full_span": true,
+      "calibration": {"start": "0.05GHz", "stop": "40GHz", "step": "0.05GHz", "spacing": "linear", "y_top_db": 50.0, "y_bottom_db": -50.0, "y_convention": "magnitude"},
+      "source": "https://wilder-tech.com/wp-content/uploads/2025/03/910-0077-000-Rev-E-PCIe-M2-Socket-3-Gen-5-User-Manual-9-9-2025.pdf",
+      "source_locator": "physical PDF page 31, Figure 33"
+    },
+    {
+      "id": "wilder-910-0077-fig36",
+      "file": "wilder-910-0077-fig36.png",
+      "sha256": "65c1792fa9d9d7e80ac5dce4945e2667d8d4e1f62eca1be5e481efc0046b462f",
+      "size": [1760, 1300],
+      "expected_plot_box": [200, 98, 1464, 1029],
+      "expected_trace_count": 4,
+      "preview_mode": "auto-axis",
+      "expected_full_span": true,
+      "calibration": {"start": "0.05GHz", "stop": "40GHz", "step": "0.05GHz", "spacing": "linear", "y_top_db": 50.0, "y_bottom_db": -50.0, "y_convention": "magnitude"},
+      "source": "https://wilder-tech.com/wp-content/uploads/2025/03/910-0077-000-Rev-E-PCIe-M2-Socket-3-Gen-5-User-Manual-9-9-2025.pdf",
+      "source_locator": "physical PDF page 32, Figure 36"
+    },
+    {
+      "id": "jae-wp16rk-differential",
+      "file": "jae-wp16rk-diff-insertion.png",
+      "sha256": "20f950fee0fd5ffa4bfd73faecc2ab0b4db47a274bda86360100fca2d95d2f6d",
+      "size": [389, 321],
+      "expected_plot_box": [44, 62, 372, 261],
+      "expected_trace_count": 1,
+      "calibration": {"start": "100MHz", "stop": "10GHz", "step": "20MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -5.0, "y_convention": "magnitude"},
+      "source": "https://products.jae.com/gl/en/connectors/content-library/featured-content/full-shield-btob-wp16rk/"
+    },
+    {
+      "id": "jae-wp16rk-rf",
+      "file": "jae-wp16rk-rf-insertion.png",
+      "sha256": "9ecb7435aa4287653074e06ac5ea157f369dc5d9a26f1a62abad5e927457dbb2",
+      "size": [271, 193],
+      "expected_plot_box": [40, 35, 238, 158],
+      "expected_trace_count": 1,
+      "calibration": {"start": "100MHz", "stop": "10GHz", "step": "20MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": -1.0, "y_convention": "magnitude"},
+      "source": "https://products.jae.com/gl/en/connectors/content-library/featured-content/full-shield-btob-wp16rk/"
+    },
+    {
+      "id": "rosenberger-solderless-pcb-p2",
+      "file": "rosenberger-p2-insertion.png",
+      "sha256": "0bec097d58541101c2bf103d5177fbea070bc29dc6eab98c9877833930df49e1",
+      "size": [390, 560],
+      "expected_plot_box": [64, 29, 331, 216],
+      "expected_trace_count": 3,
+      "calibration": {"start": "100MHz", "stop": "110GHz", "step": "100MHz", "spacing": "linear", "y_top_db": 0.0, "y_bottom_db": 10.0, "y_convention": "positive-loss"},
+      "source": "https://www.rosenberger.com/fileadmin/content/headquarter/Downloads/RF_Coaxial_Connectors/TM_MWJ_SolderlessPCB_2013.pdf"
+    }
+  ]
+}

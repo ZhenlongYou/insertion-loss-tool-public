@@ -1,0 +1,97 @@
+name: Build InsertionLossTool Windows onefile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: insertion-loss-tool-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows-onefile:
+    name: Build and verify Windows x64 onefile
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out the requested commit
+        uses: actions/checkout@v4
+
+      - name: Set up 64-bit Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Run the project Windows build contract
+        shell: cmd
+        run: build_windows_exe.bat
+
+      - name: Verify checksum and single-EXE archive layout
+        id: verify
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archives = @(Get-ChildItem -Path "dist\InsertionLossTool-*-windows-x64.zip" -File)
+          if ($archives.Count -ne 1) {
+            throw "Expected exactly one Windows release ZIP, found $($archives.Count)."
+          }
+          $archive = $archives[0]
+          $checksumPath = "$($archive.FullName).sha256.txt"
+          if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) {
+            throw "Missing SHA-256 manifest: $checksumPath"
+          }
+          $manifestLines = @(Get-Content -LiteralPath $checksumPath)
+          if ($manifestLines.Count -ne 1) {
+            throw "SHA-256 manifest must contain exactly one line."
+          }
+          $manifestMatch = [regex]::Match(
+            $manifestLines[0],
+            "^(?<hash>[A-Fa-f0-9]{64})  (?<name>[^\r\n]+)$"
+          )
+          if (-not $manifestMatch.Success) {
+            throw "SHA-256 manifest must be '<64 hex>  <archive filename>'."
+          }
+          if ($manifestMatch.Groups["name"].Value -cne $archive.Name) {
+            throw "SHA-256 manifest names '$($manifestMatch.Groups['name'].Value)' instead of '$($archive.Name)'."
+          }
+          $expectedHash = $manifestMatch.Groups["hash"].Value.ToUpperInvariant()
+          $actualHash = (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash.ToUpperInvariant()
+          if ($actualHash -ne $expectedHash) {
+            throw "SHA-256 mismatch: expected $expectedHash, got $actualHash."
+          }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($archive.FullName)
+          try {
+            $entries = @($zip.Entries)
+            if ($entries.Count -ne 1) {
+              throw "ZIP must contain exactly one entry, found $($entries.Count)."
+            }
+            $entryPath = $entries[0].FullName.Replace("\", "/")
+            if ($entryPath -cne "InsertionLossTool.exe") {
+              throw "ZIP entry must be the root file InsertionLossTool.exe, found '$entryPath'."
+            }
+          }
+          finally {
+            $zip.Dispose()
+          }
+          "archive=$($archive.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "sha256=$actualHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Verified $($archive.Name)"
+          Write-Host "SHA256 $actualHash"
+
+      - name: Upload the verified Windows release
+        uses: actions/upload-artifact@v4
+        with:
+          name: InsertionLossTool-windows-x64-onefile
+          path: |
+            dist/InsertionLossTool-*-windows-x64.zip
+            dist/InsertionLossTool-*-windows-x64.zip.sha256.txt
+          if-no-files-found: error
+          retention-days: 14

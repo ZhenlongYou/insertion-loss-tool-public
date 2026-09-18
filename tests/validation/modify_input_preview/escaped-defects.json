@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope_statement": "Escaped Modify input-loading defects in Insertion Loss Tool.",
+  "escaped_defects": [
+    {
+      "id": "MODIFY-INPUT-001",
+      "acceptance_id": "REQ-MODIFY-INPUT-001",
+      "user_symptom": "Selecting or typing a Touchstone input in Modify appears to do nothing and leaves stale plots visible.",
+      "discovered_via": "user_counterexample",
+      "failure_mechanism": "The input event only copied the path and never read metadata or refreshed the plot.",
+      "red_green_pair_id": "PAIR-MODIFY-INPUT-001",
+      "regression_test_id": "MODIFY-INPUT-001",
+      "public_path_rerun_id": "real-renderer-smoke",
+      "state": "verified"
+    }
+  ]
+}

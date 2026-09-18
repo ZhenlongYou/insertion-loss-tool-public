@@ -1,0 +1,33 @@
+{
+  "nominal": {
+    "description": "smooth observed trace",
+    "expected_review_reasons": []
+  },
+  "boundary": {
+    "description": "three-column missing raster support at the minimum accepted review size",
+    "gap": [315, 317],
+    "expected_review_reasons": ["raster_gap"]
+  },
+  "invalid": {
+    "description": "non-increasing frequency calibration",
+    "start_hz": 5000000000.0,
+    "stop_hz": 1000000000.0,
+    "expected_error": "Stop frequency must be greater than start frequency"
+  },
+  "adversarial": {
+    "description": "same-colour short upward detour supported by real raster pixels",
+    "excursion": [310, 318],
+    "expected_review_reasons": ["upward_excursion"]
+  },
+  "realistic": {
+    "description": "four smooth traces on a gridded product-manual style graph",
+    "trace_count": 4,
+    "expected_forbidden_reason": "upward_excursion"
+  },
+  "known_failure": {
+    "description": "ten-column gap hidden by a whole-curve 95th-percentile summary",
+    "gap": [315, 324],
+    "expected_review_reasons": ["raster_gap"],
+    "probe_x": 320
+  }
+}

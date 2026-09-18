@@ -1,0 +1,1 @@
+{"kind":"modify-preview","source":"examples/formula_demo.s4p","frequency_hz":[10000000,40000000000],"expected_ghz_ticks":[0,10,20,30,40]}

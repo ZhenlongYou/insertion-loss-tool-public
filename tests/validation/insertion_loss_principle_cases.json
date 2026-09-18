@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "dataset_id": "insertion-loss-tool-hardening-v1",
+  "independence_unit": "Analytical, normative, or third-party-oracle cases; expected values are not copied from insertion_loss_tool output.",
+  "cases": [
+    {
+      "id": "legacy-false-green-nonpassive-matrix",
+      "purpose": "Prevent a packaged self-test from accepting a non-passive final file.",
+      "input": {
+        "frequency_hz": [1000000000.0, 2000000000.0],
+        "s21_and_s12_magnitude": [1.04, 0.8],
+        "all_reflections": 0.0
+      },
+      "oracle": "Direct NumPy singular-value decomposition without calling production diagnostics.",
+      "expected": "maximum singular value 1.04 at 1 GHz; rejection",
+      "tolerance": 1e-9
+    },
+    {
+      "id": "s2p-return-loss-power-budget",
+      "purpose": "Bind minimum insertion loss to the reflection power budget of the generated reciprocal S2P model.",
+      "input": {"return_loss_db": 20.0},
+      "oracle": "IL_min = -10*log10(1 - 10^(-RL/10))",
+      "expected_minimum_insertion_loss_db": 0.04364805402450088,
+      "tolerance_db": 1e-14
+    },
+    {
+      "id": "touchstone-2-1-reordered-option-line",
+      "purpose": "Accept the official Touchstone 2.1 example in which option fields appear in a different legal order.",
+      "provenance": "IBIS Open Forum, Touchstone File Format Specification Version 2.1, physical PDF pages 7-9, especially option-line rules and example '# S R 100 GHz RI'.",
+      "input": "# S R 75 GHz RI",
+      "expected": {"frequency_unit": "GHz", "parameter": "S", "format": "RI", "z0_ohm": 75.0}
+    },
+    {
+      "id": "full-matrix-snp-order",
+      "purpose": "Prevent Sij transposition and over-wide physical lines in common multi-port writer output.",
+      "provenance": "IBIS Touchstone 2.1 physical PDF pages 5 and 15-19; independently parsed by scikit-rf 1.7.0.",
+      "input": {"port_counts": [2, 3, 4, 6, 8], "formats": ["RI"]},
+      "expected": "scikit-rf Network.s equals the original output,input matrix exactly within 1e-15; physical continuation lines contain at most four complex pairs"
+    },
+    {
+      "id": "common-port-adjacent-lane-generation",
+      "purpose": "Make the 2, 3, 4, 6, and 8 port UI choices generate deterministic, passive networks without inventing a three-port splitter or circulator topology.",
+      "provenance": "User-approved common port set on 2026-08-30; adjacent reciprocal lane policy is an explicit tool contract.",
+      "input": {
+        "port_counts": [2, 3, 4, 6, 8],
+        "frequency_hz": [1000000000.0, 1250000000.0, 1500000000.0, 1750000000.0, 2000000000.0],
+        "insertion_loss_db": [1.0, 1.75, 2.5, 3.25, 4.0],
+        "return_loss_db": 20.0,
+        "crosstalk_db": 80.0
+      },
+      "oracle": "Independent scikit-rf 1.7.0 readback plus hand calculations: |Sii|=10^(-20/20), adjacent-lane |Sij|=10^(-IL/20), all other off-diagonals=10^(-80/20), reciprocity exact within serialization tolerance, and sigma_max<=1+1e-9.",
+      "expected": "All five files reopen with the requested matrix size and five frequencies; the three-port default leaves port 3 at the reflection/crosstalk floor until explicit through paths are supplied.",
+      "tolerance": 2e-12
+    },
+    {
+      "id": "touchstone-2-required-structure",
+      "purpose": "Prevent ambiguous or structurally incomplete Touchstone 2.x files from being accepted.",
+      "provenance": "IBIS Touchstone 2.1 physical PDF pages 5-10, required keyword and ordering rules.",
+      "input": {
+        "invalid_variants": [
+          "missing [Two-Port Data Order] in S2P",
+          "missing [Network Data]",
+          "missing [End]",
+          "[Version] not first"
+        ]
+      },
+      "expected": "all variants rejected before an ambiguous matrix can be returned"
+    },
+    {
+      "id": "modify-default-rbf-overshoot-regression",
+      "purpose": "Prevent feasible default Modify targets from being rejected because an unconstrained Gaussian RBF creates gain between control points.",
+      "provenance": "User-reported escaped defect reproduced through InsertionLossWebApi defaults on 2026-09-02.",
+      "input": {
+        "source": "examples/linear_demo.s2p",
+        "targets": [[5000000000.0, 3.0], [12000000000.0, 8.0]],
+        "pairs": ["S21", "S12"],
+        "smoothness": 0.14,
+        "domain": "log",
+        "anchor_edges": true
+      },
+      "independent_oracle": "Direct NumPy SVD of the reread Touchstone output plus exact dB evaluation at inserted target frequencies.",
+      "pre_fix_observation": "The RBF correction reached -1.1487422408 dB, produced -0.2640000308 dB insertion loss near 1.1597125 GHz, and failed with sigma_max 1.0356997021.",
+      "expected": "public Modify path succeeds; both targets are exact within 1e-6 dB; every sampled sigma_max is at most 1+1e-9"
+    },
+    {
+      "id": "modify-feasible-target-nontarget-contraction",
+      "purpose": "Keep feasible target samples exact while contracting only an intervening passivity overshoot.",
+      "input": {
+        "frequency_hz": [1000000000.0, 2000000000.0, 3000000000.0, 4000000000.0, 5000000000.0],
+        "original_insertion_loss_db": [5.0, 5.0, 0.2, 5.0, 5.0],
+        "targets": [[2000000000.0, 1.0], [4000000000.0, 1.0]],
+        "return_loss_db": 20.0
+      },
+      "oracle": "The spectral-norm unit ball is convex; bisection on the line from the passive original matrix to the candidate must retain the largest feasible fraction. NumPy SVD independently checks every output sample.",
+      "expected": "1 dB targets remain exact, S11/S22 remain unchanged, and the 3 GHz sample is contracted to sigma_max<=1"
+    },
+    {
+      "id": "modify-error-attribution",
+      "purpose": "Distinguish a non-passive source file from a target that is itself infeasible.",
+      "input": {
+        "nonpassive_source_sigma_max": 1.2,
+        "infeasible_target_sigma_max": 1.5
+      },
+      "oracle": "Closed-form singular values of constant symmetric 2x2 matrices.",
+      "expected": "source defect reports 'Input ... not passive'; feasible source with impossible target reports 'Requested target ... passivity'"
+    },
+    {
+      "id": "deterministic-stress-boundaries",
+      "purpose": "Exercise generation, modification, serialization, and invalid passivity handling across varied sweeps.",
+      "input": {"iterations": 80, "seed": 20260704},
+      "expected": "325 cases complete; zero nominal passivity failures; deliberate zero-loss-with-reflection case is rejected"
+    }
+  ]
+}

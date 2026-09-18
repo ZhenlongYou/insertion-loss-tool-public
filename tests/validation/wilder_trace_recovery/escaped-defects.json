@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope_statement": "User-discovered Wilder trace-recovery, mapping, and common-grid defects in Insertion Loss Tool.",
+  "escaped_defects": [
+    {
+      "id": "WILDER-RECOVERY-001",
+      "acceptance_id": "REQ-WILDER-RECOVERY-001",
+      "user_symptom": "Pale crossings can exchange identity; gray, dashed, or unlabelled traces can disappear; raw source counts can be confused with the output grid; crowded plots can return plausible but unproved fragments.",
+      "discovered_via": "user_counterexamples_and_official_manual_counterexamples",
+      "failure_mechanism": "The old extractor relied on chroma and local continuity, treated label evidence too strongly, did not expose source coverage separately from the calibrated grid, and lacked a fail-closed joint-association limit.",
+      "red_green_pair_id": "PAIR-WILDER-RECOVERY-001",
+      "regression_test_id": "WILDER-RECOVERY",
+      "public_path_rerun_id": "real-workspace-path",
+      "state": "verified"
+    }
+  ]
+}

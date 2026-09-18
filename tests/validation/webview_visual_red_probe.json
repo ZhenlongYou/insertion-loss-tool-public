@@ -1,0 +1,20 @@
+{
+  "base_oid": "2a4f1e3b01fb4cb51abf2346d39c61503ee0e8eb",
+  "native_probe_sha256": "bfa7c9058a6c06829809182f1f7ac82b838b22bc1934b761e24b368a9e4a81e4",
+  "observed_failures": {
+    "mode_labels": ["线性", "协议公式", "手绘", "修改"],
+    "draw_view_box": "0 0 300 110",
+    "draw_board_css_height": 110,
+    "datasheet_grid_rows": "130px minmax(0,1fr)",
+    "output_panel_height": 130,
+    "responsive_draw_board_width": 582,
+    "draw_top_left_click_token": "2.78825GHz:-1.962"
+  },
+  "required_behavior": {
+    "mode_labels": ["Linear", "Formula", "Draw", "Modify"],
+    "draw_board_min_width": 600,
+    "draw_board_min_height": 360,
+    "output_items_clipped": false,
+    "draw_top_left_click_token": "10MHz:0"
+  }
+}

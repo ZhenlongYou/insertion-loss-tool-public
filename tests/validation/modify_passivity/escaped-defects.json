@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope_statement": "User-discovered Modify sampled-passivity and smoothing defects in Insertion Loss Tool.",
+  "escaped_defects": [
+    {
+      "id": "MODIFY-PASSIVITY-001",
+      "acceptance_id": "REQ-MODIFY-PASSIVITY-001",
+      "user_symptom": "Changing Modify target frequencies repeatedly fails with a passive error, including the bundled default example and default targets.",
+      "discovered_via": "user_counterexample",
+      "failure_mechanism": "Bundled examples predated the quadrature-reflection fix, and unconstrained Gaussian RBF smoothing could overshoot into negative insertion loss between feasible targets.",
+      "red_green_pair_id": "PAIR-MODIFY-PASSIVITY-001",
+      "regression_test_id": "MODIFY-PASSIVITY-001",
+      "public_path_rerun_id": "real-web-api-default-modify",
+      "state": "verified"
+    }
+  ]
+}

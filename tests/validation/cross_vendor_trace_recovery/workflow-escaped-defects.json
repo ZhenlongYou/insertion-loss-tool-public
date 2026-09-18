@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "scope_statement": "Image trace preview, calibration, mapping, unequal-grid composition, and Touchstone generation.",
+  "escaped_defects": [
+    {
+      "id": "IMAGE-WORKFLOW-004",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-001",
+      "user_symptom": "A near-0 dB transmission can fail export when unused ports are intended to be ideally matched.",
+      "discovered_via": "JAE RF plus Rosenberger end-to-end generation",
+      "failure_mechanism": "The old -80 dB fallback was nonzero and could push a unity transmission above the sampled passivity limit.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-004",
+      "regression_test_id": "probe_exact_matched_zero",
+      "public_path_rerun_id": "real-product-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-005",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-001",
+      "user_symptom": "Linear image calibration rejects both explicit 0GHz and unitless 0/5/0.1.",
+      "discovered_via": "user Samtec p9 screenshot",
+      "failure_mechanism": "The image form reused strict-positive, unitless-Hz parsing despite downstream DC support.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-005",
+      "regression_test_id": "probe_dc_frequency_workflow",
+      "public_path_rerun_id": "real-dc-frequency-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-006",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-001",
+      "user_symptom": "A visible Wilder trace loses its prefix and begins near the middle of the plot.",
+      "discovered_via": "user rerun of Wilder 910-0077-000 Rev E Figures 33 and 36",
+      "failure_mechanism": "Steep notch transitions fragmented one hue and the fallback retained only its longest continuity segment.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-006",
+      "regression_test_id": "probe_unique_hue_full_span",
+      "public_path_rerun_id": "real-wilder-full-span-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-007",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-001",
+      "user_symptom": "Wilder Figure 36 Trace 4 spans the plot but repeatedly jumps between the blue insertion-loss and blue-grey return-loss paths.",
+      "discovered_via": "user visual review of the real GUI overlay",
+      "failure_mechanism": "The broad hue fallback treated many discontinuities as acceptance evidence and took a per-column median across two physical blue-family identities.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-007",
+      "regression_test_id": "probe_ambiguous_hue_identity",
+      "public_path_rerun_id": "real-wilder-trace-identity-workflow",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-WORKFLOW-008",
+      "acceptance_id": "REQ-IMAGE-WORKFLOW-001",
+      "user_symptom": "The repaired Wilder Figure 36 Trace 4 still borrows the other blue-family path at isolated columns, and same-colour plot annotation can replace a short curve segment.",
+      "discovered_via": "user second visual review of the real GUI overlay",
+      "failure_mechanism": "The tracker had no explicit missing-observation state for a short shared run and the old global p95 screen ignored sparse large errors; the hue fallback also accepted short upward annotation excursions.",
+      "red_green_pair_id": "PAIR-IMAGE-WORKFLOW-008",
+      "regression_test_id": "probe_ambiguous_hue_identity",
+      "public_path_rerun_id": "real-wilder-trace-identity-workflow-v3",
+      "state": "verified"
+    }
+  ]
+}

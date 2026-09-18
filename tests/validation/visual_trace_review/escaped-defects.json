@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope_statement": "Local visual review of recovered product-manual raster traces.",
+  "escaped_defects": [
+    {
+      "id": "IMAGE-WORKFLOW-009",
+      "acceptance_id": "REQ-VISUAL-REVIEW-001",
+      "user_symptom": "A sparse identity swap or annotation detour was visually obvious but aggregate whole-curve checks and the GUI supplied no exact warning location.",
+      "discovered_via": "user visual review of Wilder Figure 36 Trace 4",
+      "failure_mechanism": "The acceptance oracle reduced path quality to trace count and aggregate percentile/error values, so a short local defect occupied too few columns to fail.",
+      "red_green_pair_id": "PAIR-VISUAL-REVIEW-001",
+      "regression_test_id": "VISUAL-REVIEW-001",
+      "public_path_rerun_id": "real-native-renderer",
+      "state": "verified"
+    }
+  ]
+}

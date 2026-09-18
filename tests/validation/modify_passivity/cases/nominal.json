@@ -1,0 +1,1 @@
+{"partition":"nominal","input":"known_failure.s2p","targets":"2GHz:1,4GHz:1","pairs":"S21,S12","expected":"success and sampled-passive output"}

@@ -1,0 +1,10 @@
+{
+  "partitions": {
+    "nominal": "A calibrated product plot exposes stable trace choices and generates a rereadable two-port Touchstone file.",
+    "boundary": "A linear image axis accepts DC while logarithmic spacing rejects it, and a near-0 dB transmission uses exact-zero matched reflections without crossing the sampled passivity limit.",
+    "invalid": "An uncalibrated trace candidate remains disabled for mapping until all required axes are supplied.",
+    "adversarial": "A positive-loss-down axis is converted to negative S-parameter dB instead of mirroring the physical curve.",
+    "realistic": "Ten hash-bound Samtec, JAE, Rosenberger, and Wilder product plots retain the human-reviewed physical trace counts; Wilder Figures 33 and 36 also retain each trace across at least 95% of the plot width.",
+    "known_failure": "Unitless 0/5/0.1 is interpreted as GHz for the image form and preserves DC through Touchstone reread; a unique same-hue path split by steep notches recovers its missing prefix, while genuinely ambiguous same-hue multiple paths remain conservative; two unequal image grids still map, intersect without fill, interpolate, generate, and reread."
+  }
+}

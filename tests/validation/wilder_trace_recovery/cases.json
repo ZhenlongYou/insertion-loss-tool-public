@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "partitions": {
+    "nominal": "Regular-grid plot with four independently drawn pale traces and one shared calibrated output grid.",
+    "boundary": "Low-chroma, achromatic, dashed, and temporarily overlapping traces must retain identity without consuming grid pixels.",
+    "invalid": "Blank or unsupported plots must fail instead of advertising a trace.",
+    "adversarial": "Disconnected and vertically jumping same-colour fragments must not be pooled into a false full-width curve.",
+    "realistic": "Wilder manual plots with crossings, deep notches, pale colours, and optional parameter labels; Figure 36 and 37 expose four candidates.",
+    "known_failure": "Unequal raw sample counts must report one calibrated output grid; more than eight crowded candidate paths must fail closed for manual review."
+  }
+}

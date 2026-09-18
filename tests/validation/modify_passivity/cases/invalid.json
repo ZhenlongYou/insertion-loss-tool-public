@@ -1,0 +1,1 @@
+{"partition":"invalid","matrix_value":0.6,"frequency_hz":[1000000000.0,2000000000.0],"targets":"1GHz:10","expected_error":"Input S-parameter matrix"}

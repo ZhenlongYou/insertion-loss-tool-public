@@ -1,0 +1,7 @@
+Insertion loss modification report
+
+pair,frequency_hz,requested_loss_db,original_loss_db,achieved_loss_db,phase_delta_deg
+S21,5000000000,3,2.67067,3,0
+S21,12000000000,8,6.13653,8,0
+S12,5000000000,3,2.67067,3,0
+S12,12000000000,8,6.13653,8,0

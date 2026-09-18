@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "scope_statement": "Escaped Draw rendering, detected-trace visibility, and Image export diagnosis defects in Insertion Loss Tool.",
+  "escaped_defects": [
+    {
+      "id": "DRAW-PLOTS-001",
+      "acceptance_id": "REQ-DRAW-TRACE-EXPORT-001",
+      "user_symptom": "Generate in Draw leaves only the drawing editor visible instead of the complete S-parameter plots.",
+      "discovered_via": "user_counterexample",
+      "failure_mechanism": "The Draw success callback rendered data but did not switch from the editor to the generated plot workspace.",
+      "red_green_pair_id": "PAIR-DRAW-PLOTS-001",
+      "regression_test_id": "DRAW-TRACE-EXPORT-001",
+      "public_path_rerun_id": "real-renderer-draw-trace-export",
+      "state": "verified"
+    },
+    {
+      "id": "TRACE-COLOR-001",
+      "acceptance_id": "REQ-DRAW-TRACE-EXPORT-001",
+      "user_symptom": "Two detected traces sampled as Magenta use identical swatches and overlays.",
+      "discovered_via": "user_counterexample",
+      "failure_mechanism": "Display styling reused the sampled source-pixel color rather than a stable per-trace palette.",
+      "red_green_pair_id": "PAIR-TRACE-COLOR-001",
+      "regression_test_id": "DRAW-TRACE-EXPORT-001",
+      "public_path_rerun_id": "real-renderer-draw-trace-export",
+      "state": "verified"
+    },
+    {
+      "id": "IMAGE-UNASSIGNED-001",
+      "acceptance_id": "REQ-DRAW-TRACE-EXPORT-001",
+      "user_symptom": "Unassigned S12, S21, and S22 mappings appear as Default and generation fails with a generic message.",
+      "discovered_via": "user_counterexample",
+      "failure_mechanism": "The UI mislabeled the internal unassigned token and discarded the backend's actionable error.",
+      "red_green_pair_id": "PAIR-IMAGE-UNASSIGNED-001",
+      "regression_test_id": "DRAW-TRACE-EXPORT-001",
+      "public_path_rerun_id": "real-renderer-draw-trace-export",
+      "state": "verified"
+    }
+  ]
+}

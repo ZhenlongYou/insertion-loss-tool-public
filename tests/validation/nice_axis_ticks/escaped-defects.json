@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "scope_statement": "User-discovered generated-plot axis readability defects in Insertion Loss Tool.",
+  "escaped_defects": [
+    {
+      "id": "PLOT-TICKS-001",
+      "acceptance_id": "REQ-PLOT-TICKS-001",
+      "user_symptom": "Generated and Modify plots show mechanically divided decimal labels such as 13.34 GHz and -4.56 dB with no engineering significance.",
+      "discovered_via": "user_counterexample",
+      "failure_mechanism": "The renderer divided the exact min-max span into a fixed number of equal intervals instead of selecting engineering-friendly steps.",
+      "red_green_pair_id": "PAIR-PLOT-TICKS-001",
+      "regression_test_id": "PLOT-TICKS-001",
+      "public_path_rerun_id": "real-renderer-smoke",
+      "state": "verified"
+    }
+  ]
+}

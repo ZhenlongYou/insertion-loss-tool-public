@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'">
+  <title>Insertion Loss Tool</title>
+  <style>
+    :root {
+      color-scheme: dark; --ink:#f7f5ff; --soft:#aaa6bc; --bg:#18192d;
+      --panel:rgba(36,37,61,.86); --field:rgba(13,15,29,.74); --line:rgba(218,211,255,.16);
+      --cyan:#8bdef8; --violet:#8273ff; --pink:#ef75bd; --danger:#ff8a9f;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html, body { width:100%; height:100%; margin:0; overflow:hidden; background:var(--bg); color:var(--ink); }
+    button, input, select, textarea { font:inherit; }
+    .app {
+      height:100%; padding:22px 28px 18px; display:grid; grid-template-rows:54px minmax(0,1fr) 38px; gap:14px;
+      position:relative; overflow:hidden;
+      background:
+        radial-gradient(620px 360px at 25% 0%, rgba(133,102,216,.28), transparent 70%),
+        radial-gradient(520px 340px at 86% 78%, rgba(61,89,178,.17), transparent 70%),
+        linear-gradient(135deg,#18192d 0%,#20213a 54%,#111322 100%);
+    }
+    .head { display:flex; align-items:center; justify-content:space-between; gap:20px; min-width:0; }
+    .brand { display:flex; align-items:center; gap:12px; min-width:0; }
+    .mark { position:relative; width:34px; height:36px; flex:0 0 auto; }
+    .mark i { position:absolute; width:23px; height:27px; border-radius:7px; }
+    .mark i:first-child { left:1px; top:1px; background:linear-gradient(150deg,#9a86ff,#6f62e7); transform:rotate(-4deg); }
+    .mark i:last-child { right:1px; bottom:1px; background:linear-gradient(150deg,#ff94cf,#e660ae); transform:rotate(4deg); }
+    h1 { margin:0; font-size:24px; letter-spacing:-.025em; white-space:nowrap; }
+    .tabs { display:flex; padding:4px; border:1px solid var(--line); border-radius:14px; background:rgba(10,11,24,.38); }
+    .tab { min-width:104px; height:34px; border:0; border-radius:10px; background:transparent; color:var(--soft); cursor:pointer; }
+    .tab.active { color:var(--ink); background:linear-gradient(110deg,rgba(130,115,255,.56),rgba(92,76,181,.58)); }
+    .workspace { display:none; min-height:0; }
+    .workspace.active { display:grid; }
+    .generator { grid-template-columns:330px minmax(0,1fr); gap:14px; }
+    .datasheet { grid-template-columns:220px minmax(680px,1.6fr) minmax(390px,.72fr); grid-template-rows:minmax(0,1fr); gap:14px; }
+    .card {
+      min-width:0; min-height:0; border:1px solid var(--line); border-radius:22px;
+      background:linear-gradient(145deg,var(--panel),rgba(255,255,255,.025));
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 22px 60px rgba(3,4,16,.14);
+    }
+    .controls { padding:18px; overflow:auto; }
+    .mode-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:16px; }
+    .chip, .mode, .secondary {
+      border:1px solid var(--line); border-radius:11px; background:rgba(255,255,255,.045); color:var(--ink);
+      min-height:34px; padding:0 11px; cursor:pointer;
+    }
+    .mode { padding:0 5px; color:var(--soft); white-space:nowrap; font-size:12px; }
+    .mode.active { color:#15182a; border-color:transparent; background:linear-gradient(110deg,var(--cyan),#9c83ff); font-weight:700; }
+    .section-title { margin:16px 0 8px; font-size:12px; color:var(--soft); font-weight:650; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .field { display:grid; gap:5px; min-width:0; }
+    .field.full { grid-column:1/-1; }
+    .field span, .check span { color:var(--soft); font-size:11px; }
+    input, select, textarea {
+      width:100%; min-width:0; border:1px solid var(--line); border-radius:10px; outline:none;
+      background:var(--field); color:var(--ink); padding:8px 10px;
+    }
+    input, select { height:36px; }
+    textarea { min-height:68px; resize:vertical; }
+    input:focus, select:focus, textarea:focus { border-color:rgba(139,222,248,.7); }
+    .mode-panel { display:none; }
+    .mode-panel.active { display:block; }
+    details { margin-top:11px; border-top:1px solid var(--line); padding-top:10px; }
+    summary { color:var(--soft); font-size:11px; cursor:pointer; margin-bottom:10px; }
+    .path { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; }
+    .modify-input-status { min-height:16px; margin-top:6px; color:var(--cyan); font-size:10px; line-height:1.35; overflow-wrap:anywhere; }
+    .modify-input-status.error { color:var(--danger); }
+    .check { display:flex; align-items:center; gap:7px; min-height:34px; }
+    .check input { width:auto; height:auto; }
+    .primary {
+      height:42px; border:0; border-radius:13px; padding:0 19px; cursor:pointer; font-weight:750; color:#15182a;
+      background:linear-gradient(110deg,var(--cyan),#9c83ff); box-shadow:0 12px 28px rgba(115,189,246,.2);
+    }
+    .primary:disabled { opacity:.48; cursor:default; box-shadow:none; }
+    .generate-row { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:14px; }
+    .plot-card { padding:14px; }
+    .plot-workspace, .draw-workspace { width:100%; height:100%; min-height:0; display:grid; grid-template-rows:38px minmax(0,1fr); }
+    .draw-head { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--soft); font-size:11px; }
+    .draw-head strong { color:var(--ink); font-size:13px; }
+    .plot-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .plot-head-actions { display:flex; align-items:center; gap:8px; }
+    .plot-tabs { display:flex; gap:6px; }
+    .plot-tabs .chip { min-height:30px; }
+    .plot-tabs .active { border-color:rgba(139,222,248,.7); color:var(--cyan); }
+    .plot-grid { min-height:0; overflow:auto; display:grid; grid-template-columns:repeat(2,minmax(260px,1fr)); grid-auto-rows:minmax(230px,1fr); gap:10px; align-content:stretch; }
+    .plot-grid.odd .plot-item:last-child { grid-column:1/-1; }
+    .empty { height:100%; display:grid; place-items:center; color:var(--soft); font-size:12px; }
+    .plot-item { min-height:230px; background:rgba(10,11,24,.38); border:1px solid var(--line); border-radius:13px; padding:8px; display:grid; grid-template-rows:28px minmax(0,1fr); }
+    .plot-item-head { display:flex; align-items:center; min-width:0; }
+    .plot-item strong { font-size:11px; color:var(--cyan); }
+    .plot-tools { display:flex; gap:3px; padding:4px; border:1px solid var(--line); border-radius:11px; background:rgba(10,11,24,.38); }
+    .plot-tool { width:40px; height:36px; padding:0; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--soft); cursor:pointer; display:grid; place-items:center; }
+    .plot-tool svg { width:20px; height:20px; display:block; }
+    .plot-tool.active { border-color:rgba(139,222,248,.55); background:rgba(139,222,248,.14); }
+    .plot-item svg { width:100%; height:100%; min-height:190px; display:block; touch-action:none; cursor:grab; user-select:none; }
+    .plot-item.zoom-mode svg { cursor:crosshair; }
+    .plot-item.dragging svg { cursor:grabbing; }
+    .draw-board { width:100%; height:100%; min-height:360px; border:1px solid var(--line); border-radius:13px; background:rgba(9,10,23,.5); cursor:crosshair; }
+    .panel { padding:15px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:34px; }
+    .panel h2 { margin:0; font-size:15px; }
+    .panel-head input { width:58px; flex:0 0 58px; }
+    .image-actions { display:flex; align-items:center; gap:7px; }
+    .image-actions .primary, .image-actions .secondary { height:38px; min-height:38px; }
+    .network-count { display:grid; grid-template-columns:1fr 68px; gap:7px; }
+    .network-list, .image-list { min-height:0; overflow:auto; display:grid; align-content:start; gap:7px; }
+    .network-item, .image-item { text-align:left; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035); color:var(--ink); padding:10px; cursor:pointer; }
+    .network-item.active, .image-item.active { border-color:rgba(139,222,248,.7); background:rgba(66,85,129,.28); }
+    .network-item small, .image-item small { display:block; color:var(--soft); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .asset-panel { grid-column:1; grid-row:1; padding:12px; display:grid; grid-template-rows:minmax(206px,.30fr) minmax(0,1fr); gap:12px; }
+    .asset-section { min-height:0; display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+    .asset-section + .asset-section { border-top:1px solid var(--line); padding-top:12px; }
+    .asset-panel .panel-head { align-items:center; }
+    .asset-panel h2 { font-size:13px; }
+    .asset-panel .image-actions .secondary { height:32px; min-height:32px; padding:0 9px; }
+    .image-panel { grid-column:2; grid-row:1; }
+    .image-body { min-height:0; flex:1; display:grid; grid-template-columns:minmax(0,1fr); }
+    .image-preview { position:relative; min-height:360px; display:grid; place-items:center; overflow:hidden; border:1px dashed var(--line); border-radius:14px; background:rgba(10,11,24,.34); cursor:zoom-in; }
+    .image-preview img, .image-preview svg { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+    .image-preview svg { pointer-events:none; }
+    .image-preview [data-overlay-trace] { transition:opacity .12s ease,stroke-width .12s ease; }
+    .image-calibration { display:grid; grid-template-columns:repeat(6,minmax(78px,1fr)); gap:8px; }
+    .curve-title { color:var(--soft); font-size:10px; margin-top:2px; }
+    .curve-controls { min-height:0; overflow:auto; display:grid; grid-template-columns:1fr; gap:7px; }
+    .curve-control { display:grid; grid-template-columns:10px minmax(0,1fr); gap:3px 7px; align-items:center; }
+    .curve-control.active { border-radius:8px; background:rgba(139,222,248,.08); }
+    .curve-control b { color:var(--soft); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .curve-control small { grid-column:2; color:var(--soft); font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .curve-control select { grid-column:1/-1; }
+    .curve-swatch { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 1px rgba(255,255,255,.28); }
+    .detail { grid-column:3; grid-row:1; padding:16px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; gap:11px; }
+    .detail-top { display:grid; grid-template-columns:minmax(145px,1fr) 100px; gap:9px; align-items:end; }
+    .detail-top .field:nth-child(3), .detail-top .check { grid-column:1/-1; }
+    .frequency-row { display:grid; grid-template-columns:minmax(0,1fr); gap:9px; align-items:end; }
+    .frequency-manual { display:grid; grid-template-columns:repeat(3,minmax(90px,1fr)); gap:8px; }
+    .hidden { display:none !important; }
+    .mapping-grid { min-height:0; overflow-y:auto; overflow-x:hidden; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-content:start; }
+    .mapping-hint { color:var(--cyan); font-size:11px; min-height:14px; }
+    .mapping { padding:8px; border:1px solid var(--line); border-radius:11px; background:rgba(10,11,24,.30); }
+    .mapping label { color:var(--cyan); font-size:11px; font-weight:750; }
+    .mapping select { margin-top:5px; }
+    .datasheet-generate-row { display:grid; grid-template-columns:1fr auto; gap:8px; padding-top:2px; }
+    .datasheet-generate-row .secondary, .datasheet-generate-row .primary { height:40px; }
+    .status { color:var(--soft); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-self:center; }
+    #coverage-status { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35; align-self:start; }
+    .foot { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:0 4px; }
+    .boundary { color:var(--soft); font-size:10px; }
+    dialog { width:min(92vw,1500px); height:min(90vh,1000px); border:1px solid var(--line); border-radius:18px; padding:12px; background:#121427; color:var(--ink); }
+    dialog::backdrop { background:rgba(4,5,14,.82); }
+    .zoom-toolbar { height:36px; display:flex; align-items:center; justify-content:flex-end; gap:5px; }
+    .zoom-toolbar button { min-width:34px; height:30px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.05); color:var(--ink); cursor:pointer; }
+    .zoom-toolbar output { min-width:52px; text-align:center; color:var(--soft); font-size:11px; }
+    .zoom-stage { width:100%; height:calc(100% - 36px); overflow:auto; background:rgba(5,6,16,.75); border-radius:10px; cursor:grab; }
+    .zoom-stage.dragging { cursor:grabbing; }
+    .zoom-stage img { display:block; margin:0 auto; max-width:none; max-height:none; user-select:none; -webkit-user-drag:none; }
+    @media (max-width:1050px) {
+      .app { padding:14px; }
+      .generator { grid-template-columns:280px minmax(0,1fr); gap:12px; }
+      .datasheet { grid-template-columns:190px minmax(520px,1fr); grid-template-rows:minmax(500px,1fr) minmax(420px,1fr); overflow:auto; }
+      .asset-panel { grid-column:1; grid-row:1; }
+      .image-panel { grid-column:2; grid-row:1; }
+      .datasheet .detail { grid-column:1/3; grid-row:2; min-height:420px; }
+    }
+    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="head">
+      <div class="brand"><div class="mark"><i></i><i></i></div><h1>Insertion Loss Tool</h1></div>
+      <nav class="tabs" aria-label="Workspace">
+        <button class="tab active" type="button" data-tab="generator">Generate and Modify S-Parameter</button>
+        <button class="tab" type="button" data-tab="datasheet">Image to S-Parameter</button>
+      </nav>
+    </header>
+
+    <section id="generator" class="workspace generator active">
+      <aside class="card controls">
+        <div class="mode-row">
+          <button class="mode active" type="button" data-mode="linear">Linear</button>
+          <button class="mode" type="button" data-mode="formula">Formula</button>
+          <button class="mode" type="button" data-mode="draw">Draw</button>
+          <button class="mode" type="button" data-mode="modify">Modify</button>
+        </div>
+        <div class="section-title">Sweep</div>
+        <div class="grid">
+          <label class="field"><span>Ports</span><select id="ports" data-common-ports></select></label>
+          <label class="field"><span>Points</span><input id="points" inputmode="numeric"></label>
+          <label class="field"><span>Start</span><input id="f-start"></label>
+          <label class="field"><span>Stop</span><input id="f-stop"></label>
+        </div>
+
+        <div id="mode-linear" class="mode-panel active">
+          <div class="section-title">Linear Loss</div>
+          <div class="grid">
+            <label class="field"><span>Start Loss (dB)</span><input id="loss-start-db"></label>
+            <label class="field"><span>Stop Loss (dB)</span><input id="loss-stop-db"></label>
+          </div>
+        </div>
+        <div id="mode-formula" class="mode-panel">
+          <div class="section-title">Loss = a·f + b·√f + c</div>
+          <div class="grid">
+            <label class="field"><span>a</span><input id="formula-a"></label>
+            <label class="field"><span>b</span><input id="formula-b"></label>
+            <label class="field"><span>c</span><input id="formula-c"></label>
+            <label class="field"><span>Frequency Unit</span><select id="model-unit"><option value="ghz">GHz</option><option value="mhz">MHz</option><option value="khz">kHz</option><option value="hz">Hz</option></select></label>
+          </div>
+        </div>
+        <div id="mode-draw" class="mode-panel">
+          <div class="section-title">Control Points</div>
+          <label class="field full"><span>Frequency : dB</span><textarea id="control-points" placeholder="1GHz:-1, 20GHz:-8"></textarea></label>
+        </div>
+        <div id="mode-modify" class="mode-panel">
+          <div class="section-title">Modify File</div>
+          <label class="field full"><span>Input File</span><span class="path"><input id="modify-input"><button id="choose-input" class="secondary" type="button">Browse</button></span></label>
+          <div id="modify-input-status" class="modify-input-status" role="status" aria-live="polite">Choose a Touchstone file to load its sweep and preview.</div>
+          <div class="grid">
+            <label class="field full"><span>Targets (f:dB)</span><input id="targets"></label>
+            <label class="field full"><span>Paths (Sij)</span><input id="pairs"></label>
+          </div>
+        </div>
+
+        <details>
+          <summary>More Parameters</summary>
+          <div class="grid">
+            <label class="field"><span>Sweep Spacing</span><select id="spacing"><option>linear</option><option>log</option></select></label>
+            <label class="field"><span>Touchstone Format</span><select id="format"><option>ri</option><option>ma</option><option>db</option></select></label>
+            <label class="field"><span>Frequency Unit</span><select id="frequency-unit"><option value="ghz">GHz</option><option value="mhz">MHz</option><option value="khz">kHz</option><option value="hz">Hz</option></select></label>
+            <label class="field"><span>Return Loss (dB)</span><input id="return-loss"></label>
+            <label class="field"><span>Crosstalk (dB)</span><input id="crosstalk"></label>
+            <label class="field"><span>Delay (ps)</span><input id="delay"></label>
+            <label class="field"><span>Phase (deg)</span><input id="phase-offset"></label>
+            <label class="field"><span>Reference Z (Ω)</span><input id="z0"></label>
+            <label class="field full"><span>Through Paths</span><input id="through-pairs"></label>
+            <label class="field"><span>Draw Y Min</span><input id="draw-min"></label>
+            <label class="field"><span>Draw Y Max</span><input id="draw-max"></label>
+            <label class="field"><span>Draw Fit</span><select id="draw-fit"><option>smooth</option><option>linear</option></select></label>
+            <label class="field"><span>Draw Domain</span><select id="draw-domain"><option>linear</option><option>log</option></select></label>
+            <label class="field"><span>Modify Smoothness</span><input id="smoothness"></label>
+            <label class="field"><span>Modify Domain</span><select id="smooth-domain"><option>log</option><option>linear</option></select></label>
+            <label class="check"><input id="anchor-edges" type="checkbox"><span>Anchor Edges</span></label>
+            <label class="check"><input id="insert-targets" type="checkbox"><span>Insert Targets</span></label>
+            <label class="check"><input id="overwrite" type="checkbox"><span>Overwrite Existing</span></label>
+          </div>
+        </details>
+        <div class="section-title">Output File</div>
+        <div class="path"><input id="output" placeholder="Auto name"><button id="choose-output" class="secondary" type="button">Browse</button></div>
+        <div class="generate-row"><button id="open-output" class="secondary" type="button">Open Folder</button><button id="generate" class="primary" type="button">Generate</button></div>
+      </aside>
+      <article class="card plot-card">
+        <div id="plot-workspace" class="plot-workspace">
+          <div class="plot-head"><strong id="plot-title">Magnitude</strong><div class="plot-head-actions"><div class="plot-tabs"><button class="chip active" type="button" data-plot="magnitude">Magnitude</button><button class="chip" type="button" data-plot="phase">Phase</button></div><div class="plot-tools" role="toolbar" aria-label="Plot navigation"><button class="plot-tool" type="button" data-plot-action="zoom" title="Zoom: drag a rectangle" aria-label="Rectangle zoom"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4.5 8V4.5H8M13 4.5h3.5V8M16.5 13v3.5H13M8 16.5H4.5V13" stroke="#DCE7F7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10.5" cy="10.5" r="7" stroke="#DCE7F7" stroke-width="1.7"/><path d="m15.8 15.8 4 4" stroke="#DCE7F7" stroke-width="1.9" stroke-linecap="round"/></svg></button><button class="plot-tool active" type="button" data-plot-action="pan" title="Pan: drag the plot; mouse wheel zooms" aria-label="Pan plot"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v18M3 12h18" stroke="#DCE7F7" stroke-width="1.7" stroke-linecap="round"/><path d="m8.8 6.2 3.2-3.2 3.2 3.2M8.8 17.8 12 21l3.2-3.2M6.2 8.8 3 12l3.2 3.2M17.8 8.8 21 12l-3.2 3.2" stroke="#DCE7F7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.2" fill="#5B8FF9" stroke="#DCE7F7" stroke-width="1.2"/></svg></button><button class="plot-tool" type="button" data-plot-action="reset" title="Restore recommended ranges" aria-label="Reset plot ranges"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m3.5 11.2 8.5-7 8.5 7" stroke="#DCE7F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.8 10.2v9.2h12.4v-9.2M10 19.4v-5.2h4v5.2" stroke="#DCE7F7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div></div>
+          <div id="plot-grid" class="plot-grid"><div class="empty">Generate to view S-parameters</div></div>
+        </div>
+        <div id="draw-workspace" class="draw-workspace hidden">
+          <div class="draw-head"><strong>Draw Insertion Loss</strong><span>Click to add a control point</span></div>
+          <svg id="draw-board" class="draw-board" viewBox="0 0 900 500" preserveAspectRatio="none" aria-label="Draw insertion-loss curve"></svg>
+        </div>
+      </article>
+    </section>
+
+    <section id="datasheet" class="workspace datasheet">
+      <aside class="card panel asset-panel">
+        <section class="asset-section">
+          <div class="panel-head"><h2>Output Networks</h2><input id="network-count" type="number" min="1" max="6" value="1" aria-label="Output count"></div>
+          <div id="network-list" class="network-list"></div>
+        </section>
+        <section class="asset-section">
+          <div class="panel-head"><h2>Images</h2><div class="image-actions"><button id="add-images" class="secondary" type="button" data-action="choose-images" disabled>Add</button><button id="remove-image" class="secondary" type="button" disabled>Remove</button></div></div>
+          <div id="image-list" class="image-list"></div>
+          <div id="curve-title" class="curve-title hidden">Detected Traces</div>
+          <div id="curve-controls" class="curve-controls"></div>
+        </section>
+      </aside>
+      <aside class="card panel image-panel">
+        <div class="panel-head"><h2>Preview <span id="digitize-status" class="status">No image</span></h2><div class="image-actions"><button id="digitize-image" class="primary" type="button" disabled>Digitize</button></div></div>
+        <div class="image-body">
+          <div id="image-preview" class="image-preview" role="button" tabindex="0" aria-label="Open image viewer"><span class="status">No images</span></div>
+        </div>
+        <div class="image-calibration">
+          <label class="field"><span>Start</span><input id="image-f-start" placeholder="10MHz"></label>
+          <label class="field"><span>Stop</span><input id="image-f-stop" placeholder="18GHz"></label>
+          <label class="field"><span>Step</span><input id="image-f-step" placeholder="10MHz"></label>
+          <label class="field"><span>X Scale</span><select id="image-spacing"><option value="linear">Linear</option><option value="log">Log</option></select></label>
+          <label class="field"><span>Y Max (dB)</span><input id="image-y-max" inputmode="decimal" placeholder="1"></label>
+          <label class="field"><span>Y Min (dB)</span><input id="image-y-min" inputmode="decimal" placeholder="-9"></label>
+        </div>
+      </aside>
+      <article class="card detail">
+        <div class="detail-top">
+          <label class="field"><span>Parameter Set</span><select id="network-family"><option value="single-ended">Sij</option><option value="mixed-mode">Mixed-mode</option></select></label>
+          <label class="field"><span>Ports</span><select id="network-ports" data-common-ports></select></label>
+          <label class="field"><span>Output File</span><input id="network-output" readonly></label>
+          <label class="check" title="Link transpose parameter pairs"><input id="network-reciprocal" type="checkbox"><span>Reciprocal</span></label>
+        </div>
+        <div class="frequency-row">
+          <label class="field"><span>Frequency Range</span><select id="frequency-policy"><option value="intersection">Common Range</option><option value="manual">Manual</option><option value="union">Full Range</option></select></label>
+          <div id="manual-frequency" class="frequency-manual hidden">
+            <label class="field"><span>Start</span><input id="output-f-start" placeholder="100MHz"></label>
+            <label class="field"><span>Stop</span><input id="output-f-stop" placeholder="16GHz"></label>
+            <label class="field"><span>Step</span><input id="output-f-step" placeholder="10MHz"></label>
+          </div>
+          <label id="fill-option" class="check hidden"><input id="frequency-fill" type="checkbox"><span>Fill Missing Range</span></label>
+          <div id="coverage-status" class="status">Default Curves</div>
+        </div>
+        <div id="mapping-hint" class="mapping-hint"></div>
+        <div id="mapping-grid" class="mapping-grid"></div>
+        <div class="datasheet-generate-row"><button id="open-image-output" class="secondary" type="button">Open Folder</button><button id="generate-network" class="primary" type="button">Generate File</button></div>
+      </article>
+    </section>
+
+    <dialog id="image-zoom">
+      <div class="zoom-toolbar">
+        <button id="zoom-out" type="button" aria-label="Zoom out">−</button><output id="zoom-level">100%</output><button id="zoom-in" type="button" aria-label="Zoom in">＋</button>
+        <button id="zoom-reset" type="button">Fit</button><button id="close-image-zoom" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="zoom-stage" class="zoom-stage"><img id="zoom-image" alt="" draggable="false"></div>
+    </dialog>
+
+    <footer class="foot"><div id="status" class="status" aria-live="polite">Ready</div><div class="boundary">Sampled-passive · Broadband causality not certified</div></footer>
+  </main>
+
+  <script>
+    (() => {
+      const $ = selector => document.querySelector(selector);
+      const $$ = selector => [...document.querySelectorAll(selector)];
+      const state = { mode:"linear", plotKind:"magnitude", plotMode:"pan", plot:null, plotViews:{}, plotGesture:null, running:false, modifyLoading:false, modifyLoadToken:0, generatorSweep:null, imageGenerating:false, importing:false, digitizing:false, datasheet:null, selectedNetwork:0, selectedImage:0, selectedTrace:null, portOptions:[], zoom:{fit:1,scale:1,dragging:false,x:0,y:0,left:0,top:0} };
+      const DRAW_FRAME = Object.freeze({width:900,height:500,left:62,right:872,top:24,bottom:446});
+      const status = $("#status");
+      const value = id => $(id).value;
+      const setValue = (id, next) => { $(id).value = next ?? ""; };
+      const escapeHtml = text => String(text).replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[character]);
+      const TRACE_PALETTE = Object.freeze([[139,222,248],[239,117,189],[255,193,92],[129,222,154],[166,132,255],[255,137,102]]);
+      window.insertionLossBridgeCalls = 0;
+      const callApi = (name, ...args) => {
+        window.insertionLossBridgeCalls += 1;
+        return window.pywebview.api[name](...args);
+      };
+
+      function switchTab(name) {
+        $$("[data-tab]").forEach(button => button.classList.toggle("active", button.dataset.tab === name));
+        $$(".workspace").forEach(panel => panel.classList.toggle("active", panel.id === name));
+        status.textContent = "Ready";
+      }
+      function switchMode(mode) {
+        const previous=state.mode;
+        if(mode==="modify" && previous!=="modify")state.generatorSweep={ports:value("#ports"),points:value("#points"),start:value("#f-start"),stop:value("#f-stop")};
+        if(previous==="modify" && mode!=="modify"){
+          state.modifyLoadToken+=1;
+          state.modifyLoading=false;
+          const saved=state.generatorSweep;
+          if(saved){renderPortChoices($("#ports"),saved.ports);setValue("#points",saved.points);setValue("#f-start",saved.start);setValue("#f-stop",saved.stop);}
+          state.generatorSweep=null;
+          setRunning(state.running);
+        }
+        state.mode = mode;
+        $$("[data-mode]").forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
+        $$(".mode-panel").forEach(panel => panel.classList.toggle("active", panel.id === `mode-${mode}`));
+        if (mode === "draw") showDrawEditor(); else showGeneratedPlots();
+        if (mode === "modify") requestAnimationFrame(()=>loadModifyInput(value("#modify-input")));
+      }
+      function showGeneratedPlots() {
+        $("#plot-workspace").classList.remove("hidden");
+        $("#draw-workspace").classList.add("hidden");
+      }
+      function showDrawEditor() {
+        $("#plot-workspace").classList.add("hidden");
+        $("#draw-workspace").classList.remove("hidden");
+        requestAnimationFrame(drawBoard);
+      }
+      function parseFrequency(text) {
+        const match = String(text).trim().match(/^([+-]?[0-9]*\.?[0-9]+)\s*(hz|khz|mhz|ghz)$/i);
+        if (!match) return null;
+        return Number(match[1]) * ({hz:1,khz:1e3,mhz:1e6,ghz:1e9})[match[2].toLowerCase()];
+      }
+      function formatFrequency(hz) {
+        if (hz >= 1e9) return `${Number((hz/1e9).toPrecision(6))}GHz`;
+        if (hz >= 1e6) return `${Number((hz/1e6).toPrecision(6))}MHz`;
+        if (hz >= 1e3) return `${Number((hz/1e3).toPrecision(6))}kHz`;
+        return `${Number(hz.toPrecision(6))}Hz`;
+      }
+      function selectedFrequencyUnit() {
+        const units={hz:{scale:1,label:"Hz"},khz:{scale:1e3,label:"kHz"},mhz:{scale:1e6,label:"MHz"},ghz:{scale:1e9,label:"GHz"}};
+        return units[String(value("#frequency-unit") || "ghz").toLowerCase()] || units.ghz;
+      }
+      function drawBoard() {
+        const svg = $("#draw-board");
+        const points = value("#control-points").split(/[\n,]+/).map(item => item.trim()).filter(Boolean).map(item => {
+          const parts = item.split(":"); return { f:parseFrequency(parts[0]), db:Number(parts[1]) };
+        }).filter(item => Number.isFinite(item.f) && Number.isFinite(item.db));
+        const start = parseFrequency(value("#f-start")), stop = parseFrequency(value("#f-stop"));
+        const ymin = Number(value("#draw-min")), ymax = Number(value("#draw-max"));
+        if (!(start > 0 && stop > start && ymax > ymin)) {
+          svg.innerHTML = "";
+          return;
+        }
+        const {left,right,top,bottom}=DRAW_FRAME;
+        const displayUnit=selectedFrequencyUnit();
+        const scaleX = f => left + (right-left) * (f-start) / (stop-start);
+        const scaleY = db => top + (bottom-top) * (ymax-db) / (ymax-ymin);
+        const line = points.sort((a,b) => a.f-b.f).map(item => `${scaleX(item.f)},${scaleY(item.db)}`).join(" ");
+        const horizontal=Array.from({length:6},(_,index) => {
+          const y=top+(bottom-top)*index/5, db=ymax-(ymax-ymin)*index/5;
+          return `<path d="M${left} ${y}H${right}" stroke="rgba(255,255,255,.10)"/><text x="${left-10}" y="${y+4}" text-anchor="end">${Number(db.toFixed(2))}</text>`;
+        }).join("");
+        const vertical=Array.from({length:6},(_,index) => {
+          const x=left+(right-left)*index/5, frequency=start+(stop-start)*index/5;
+          return `<path d="M${x} ${top}V${bottom}" stroke="rgba(255,255,255,.08)"/><text data-draw-x-tick x="${x}" y="${bottom+25}" text-anchor="middle">${Number((frequency/displayUnit.scale).toPrecision(6))}</text>`;
+        }).join("");
+        svg.innerHTML = `<g fill="rgba(239,240,255,.68)" font-size="13" font-family="system-ui,sans-serif">${horizontal}${vertical}<text data-draw-y-axis x="18" y="${(top+bottom)/2}" text-anchor="middle" transform="rotate(-90 18 ${(top+bottom)/2})">Magnitude (dB)</text><text data-draw-x-axis x="${(left+right)/2}" y="493" text-anchor="middle">Frequency (${displayUnit.label})</text></g><path d="M${left} ${top}V${bottom}H${right}" fill="none" stroke="rgba(255,255,255,.28)"/><polyline points="${line}" fill="none" stroke="#8bdef8" stroke-width="3" vector-effect="non-scaling-stroke"/>${points.map(item => `<circle cx="${scaleX(item.f)}" cy="${scaleY(item.db)}" r="6" fill="#ef75bd" vector-effect="non-scaling-stroke"/>`).join("")}`;
+      }
+      function collectConfig() {
+        return {
+          mode:state.mode, ports:value("#ports"), points:value("#points"), f_start:value("#f-start"), f_stop:value("#f-stop"),
+          spacing:value("#spacing"), format:value("#format"), frequency_unit:value("#frequency-unit"),
+          return_loss_db:value("#return-loss"), crosstalk_db:value("#crosstalk"), delay_ps:value("#delay"),
+          phase_offset_deg:value("#phase-offset"), z0:value("#z0"), through_pairs:value("#through-pairs"), output:value("#output"),
+          loss_start_db:value("#loss-start-db"), loss_stop_db:value("#loss-stop-db"),
+          a:value("#formula-a"), b:value("#formula-b"), c:value("#formula-c"), model_frequency_unit:value("#model-unit"),
+          control_points:value("#control-points"), fit:value("#draw-fit"), fit_domain:value("#draw-domain"),
+          min_spacing_fraction:"0.0001", max_slope_db_per_span:"500",
+          input:value("#modify-input"), targets:value("#targets"), pairs:value("#pairs"), smoothness:value("#smoothness"),
+          smooth_domain:value("#smooth-domain"), anchor_edges:$("#anchor-edges").checked, insert_targets:$("#insert-targets").checked, overwrite:$("#overwrite").checked,
+        };
+      }
+      function setRunning(running) {
+        state.running = running; $("#generate").disabled = running || state.modifyLoading; $("#generate").textContent = running ? "Generating" : "Generate";
+      }
+      function setModifyInputStatus(message,error=false) {
+        const target=$("#modify-input-status"); target.textContent=message; target.classList.toggle("error",error);
+      }
+      async function loadModifyInput(path) {
+        const source=String(path ?? "").trim(), token=++state.modifyLoadToken;
+        if(!source){setModifyInputStatus("Choose a Touchstone file to load its sweep and preview.");return {ok:false,cancelled:true};}
+        state.modifyLoading=true; setRunning(state.running); setModifyInputStatus("Loading Touchstone file…"); status.textContent="Loading Modify input";
+        try {
+          const response=await callApi("inspect_input",source,value("#frequency-unit"));
+          if(token!==state.modifyLoadToken || state.mode!=="modify")return response;
+          if(!response.ok){const message=displayMessage(response.error);state.plot=null;state.plotViews={};renderPlot();setModifyInputStatus(message,true);status.textContent=message;return response;}
+          setValue("#modify-input",response.path); renderPortChoices($("#ports"),response.ports); setValue("#points",response.points);
+          setValue("#f-start",formatFrequency(Number(response.start_hz))); setValue("#f-stop",formatFrequency(Number(response.stop_hz)));
+          state.plot=response.plot; state.plotViews={}; renderPlot();
+          const summary=`Loaded ${response.name} · ${response.ports} ports · ${response.points} points · ${formatFrequency(Number(response.start_hz))}–${formatFrequency(Number(response.stop_hz))}`;
+          setModifyInputStatus(summary); status.textContent=summary; return response;
+        } catch(_error) {
+          if(token!==state.modifyLoadToken)return {ok:false,error:"stale"};
+          const message="Unable to load the selected Touchstone file."; state.plot=null;state.plotViews={};renderPlot();setModifyInputStatus(message,true); status.textContent=message; return {ok:false,error:message};
+        } finally {
+          if(token===state.modifyLoadToken){state.modifyLoading=false;setRunning(state.running);}
+        }
+      }
+      function chartPath(frequencies, values, frame, xMin, xMax, yMin, yMax) {
+        return values.map((item,index) => {
+          const frequency=Number(frequencies[index]);
+          if(!Number.isFinite(item)||!Number.isFinite(frequency))return "";
+          const x=frame.left+(frequency-xMin)*(frame.right-frame.left)/Math.max(xMax-xMin,Number.EPSILON);
+          const y=frame.top+(yMax-item)*(frame.bottom-frame.top)/Math.max(yMax-yMin,Number.EPSILON);
+          return `${index ? "L" : "M"}${x.toFixed(2)} ${y.toFixed(2)}`;
+        }).join(" ");
+      }
+      function niceStep(minimum,maximum,targetIntervals=5) {
+        const span=Math.abs(Number(maximum)-Number(minimum));
+        if(!(span>0)||!Number.isFinite(span))return 1;
+        const raw=span/Math.max(1,Number(targetIntervals)||1), power=10**Math.floor(Math.log10(raw)), fraction=raw/power;
+        const multiplier=fraction<=1 ? 1 : fraction<=2 ? 2 : fraction<=5 ? 5 : 10;
+        return multiplier*power;
+      }
+      function engineeringPhaseStep(minimum,maximum,targetIntervals=5) {
+        const span=Math.abs(Number(maximum)-Number(minimum)), raw=span/Math.max(1,Number(targetIntervals)||1);
+        const candidates=[1,2,5,10,15,30,45,90,180,360];
+        return candidates.find(candidate=>candidate>=raw) || 360*niceStep(0,raw/360,1);
+      }
+      function cleanAxisNumber(value) {
+        const normalized=Math.abs(value)<Number.EPSILON*16 ? 0 : value;
+        return Number(normalized.toPrecision(12));
+      }
+      function engineeringTicks(minimum,maximum,targetIntervals=5,kind="linear") {
+        const step=kind==="phase" ? engineeringPhaseStep(minimum,maximum,targetIntervals) : niceStep(minimum,maximum,targetIntervals);
+        const epsilon=step*1e-9, first=Math.ceil((minimum-epsilon)/step)*step, last=Math.floor((maximum+epsilon)/step)*step;
+        const count=Math.max(0,Math.min(100,Math.floor((last-first)/step+1.0000001)));
+        return {step,values:Array.from({length:count},(_,index)=>cleanAxisNumber(first+index*step))};
+      }
+      function niceAxis(minimum,maximum,targetIntervals=5,kind="linear") {
+        let low=Number(minimum), high=Number(maximum);
+        if(!Number.isFinite(low)||!Number.isFinite(high))return {minimum:0,maximum:1,step:1};
+        if(low===high){const delta=Math.max(Math.abs(low)*.05,1);low-=delta;high+=delta;}
+        const {step}=engineeringTicks(low,high,targetIntervals,kind);
+        let axisMinimum=Math.floor(low/step)*step, axisMaximum=Math.ceil(high/step)*step;
+        if(axisMinimum===axisMaximum){axisMinimum-=step;axisMaximum+=step;}
+        return {minimum:cleanAxisNumber(axisMinimum),maximum:cleanAxisNumber(axisMaximum),step};
+      }
+      function formatAxisTick(value,step) {
+        const decimals=Math.max(0,Math.min(6,-Math.floor(Math.log10(Math.abs(step)||1))));
+        return String(Number(Number(value).toFixed(decimals)));
+      }
+      function plotKey(seriesName,kind=state.plotKind) { return `${kind}:${seriesName}`; }
+      function plotView(key,base) {
+        const prior=state.plotViews[key];
+        if(prior)return prior;
+        const created={...base}; state.plotViews[key]=created; return created;
+      }
+      function plotItemForKey(key) {
+        return $$('.plot-item').find(item=>item.dataset.plotKey===key);
+      }
+      function plotRatios(svg,event) {
+        const rect=svg.getBoundingClientRect();
+        return {
+          x:Math.min(1,Math.max(0,(event.clientX-rect.left)/Math.max(rect.width,1))),
+          y:Math.min(1,Math.max(0,(event.clientY-rect.top)/Math.max(rect.height,1))),
+          rect,
+        };
+      }
+      function setPlotMouseMode(mode) {
+        state.plotMode=mode;
+        $$('[data-plot-action="zoom"],[data-plot-action="pan"]').forEach(button=>button.classList.toggle("active",button.dataset.plotAction===mode));
+        renderPlot();
+      }
+      function resetPlots() {
+        state.plotViews={}; renderPlot();
+      }
+      function bindPlotInteractions() {
+        $$('.plot-item svg').forEach(svg=>{
+          const key=svg.closest('.plot-item').dataset.plotKey;
+          svg.addEventListener("wheel",event=>{
+            event.preventDefault();
+            const view=state.plotViews[key], ratio=plotRatios(svg,event), factor=event.deltaY<0?.82:1.22;
+            const xAt=view.xMin+(view.xMax-view.xMin)*ratio.x;
+            const yAt=view.yMax-(view.yMax-view.yMin)*ratio.y;
+            const xSpan=(view.xMax-view.xMin)*factor, ySpan=(view.yMax-view.yMin)*factor;
+            view.xMin=xAt-xSpan*ratio.x; view.xMax=xAt+xSpan*(1-ratio.x);
+            view.yMin=yAt-ySpan*(1-ratio.y); view.yMax=yAt+ySpan*ratio.y;
+            renderPlot();
+          },{passive:false});
+          svg.addEventListener("pointerdown",event=>{
+            if(event.button!==0)return;
+            const view=state.plotViews[key], ratio=plotRatios(svg,event);
+            state.plotGesture={key,mode:state.plotMode,startX:event.clientX,startY:event.clientY,startRatioX:ratio.x,startRatioY:ratio.y,rect:ratio.rect,domain:{xMin:view.xMin,xMax:view.xMax,yMin:view.yMin,yMax:view.yMax}};
+            plotItemForKey(key)?.classList.add("dragging");
+            event.preventDefault();
+          });
+        });
+      }
+      window.addEventListener("pointermove",event=>{
+        const gesture=state.plotGesture; if(!gesture)return;
+        const item=plotItemForKey(gesture.key); if(!item)return;
+        if(gesture.mode==="zoom"){
+          const svg=item.querySelector("svg"), box=svg.querySelector('[data-zoom-box]'), current=plotRatios(svg,event);
+          const x1=64+288*Math.min(gesture.startRatioX,current.x), x2=64+288*Math.max(gesture.startRatioX,current.x);
+          const y1=12+150*Math.min(gesture.startRatioY,current.y), y2=12+150*Math.max(gesture.startRatioY,current.y);
+          box.setAttribute("x",x1);box.setAttribute("y",y1);box.setAttribute("width",Math.max(0,x2-x1));box.setAttribute("height",Math.max(0,y2-y1));box.removeAttribute("hidden");
+          return;
+        }
+        const view=state.plotViews[gesture.key], xSpan=gesture.domain.xMax-gesture.domain.xMin, ySpan=gesture.domain.yMax-gesture.domain.yMin;
+        const dx=(event.clientX-gesture.startX)/Math.max(gesture.rect.width,1), dy=(event.clientY-gesture.startY)/Math.max(gesture.rect.height,1);
+        view.xMin=gesture.domain.xMin-dx*xSpan;view.xMax=gesture.domain.xMax-dx*xSpan;
+        view.yMin=gesture.domain.yMin+dy*ySpan;view.yMax=gesture.domain.yMax+dy*ySpan;
+        renderPlot();
+      });
+      window.addEventListener("pointerup",event=>{
+        const gesture=state.plotGesture; if(!gesture)return;
+        state.plotGesture=null;
+        plotItemForKey(gesture.key)?.classList.remove("dragging");
+        if(gesture.mode!=="zoom")return;
+        const dx=Math.abs(event.clientX-gesture.startX),dy=Math.abs(event.clientY-gesture.startY);
+        if(dx<8||dy<8)return;
+        const endX=Math.min(1,Math.max(0,(event.clientX-gesture.rect.left)/Math.max(gesture.rect.width,1)));
+        const endY=Math.min(1,Math.max(0,(event.clientY-gesture.rect.top)/Math.max(gesture.rect.height,1)));
+        const view=state.plotViews[gesture.key], xSpan=gesture.domain.xMax-gesture.domain.xMin, ySpan=gesture.domain.yMax-gesture.domain.yMin;
+        const xLow=Math.min(gesture.startRatioX,endX),xHigh=Math.max(gesture.startRatioX,endX),yLow=Math.min(gesture.startRatioY,endY),yHigh=Math.max(gesture.startRatioY,endY);
+        view.xMin=gesture.domain.xMin+xSpan*xLow;view.xMax=gesture.domain.xMin+xSpan*xHigh;
+        view.yMin=gesture.domain.yMax-ySpan*yHigh;view.yMax=gesture.domain.yMax-ySpan*yLow;
+        renderPlot();
+      });
+      function renderPlot() {
+        const grid = $("#plot-grid");
+        if (!state.plot) { grid.innerHTML = '<div class="empty">Generate to view S-parameters</div>'; return; }
+        const kind = state.plotKind; $("#plot-title").textContent = kind === "magnitude" ? "Magnitude" : "Phase";
+        const frequency=(state.plot.frequency || []).map(Number);
+        const rawXMin=Math.min(...frequency), rawXMax=Math.max(...frequency);
+        const xAxis=niceAxis(rawXMin,rawXMax,4);
+        const allValues=state.plot.series.flatMap(series=>(series[kind] || []).map(Number)).filter(Number.isFinite);
+        let rawYMin=Math.min(...allValues), rawYMax=Math.max(...allValues);
+        if(rawYMin===rawYMax){rawYMin-=1;rawYMax+=1;}
+        const pad=Math.max((rawYMax-rawYMin)*.06,kind==="phase" ? 1 : .2);
+        const yLow=rawYMin-pad, yHigh=kind==="magnitude" && rawYMax<=0 ? 0 : rawYMax+pad;
+        const yAxis=niceAxis(yLow,yHigh,5,kind);
+        const frame={left:64,right:352,top:12,bottom:162};
+        const base={xMin:xAxis.minimum,xMax:xAxis.maximum,yMin:yAxis.minimum,yMax:yAxis.maximum};
+        grid.dataset.count=String(state.plot.series.length);
+        grid.classList.toggle("odd",state.plot.series.length%2===1);
+        grid.innerHTML = state.plot.series.map(series => {
+          const key=plotKey(series.name,kind), view=plotView(key,base);
+          const values = series[kind];
+          const xScale=engineeringTicks(view.xMin,view.xMax,4), yScale=engineeringTicks(view.yMin,view.yMax,5,kind);
+          const horizontal=yScale.values.map(tick=>{const y=frame.top+(view.yMax-tick)*(frame.bottom-frame.top)/(view.yMax-view.yMin);return `<path d="M${frame.left} ${y}H${frame.right}" stroke="rgba(255,255,255,.08)"/><text data-y-tick x="56" y="${y+3}" text-anchor="end">${formatAxisTick(tick,yScale.step)}</text>`;}).join("");
+          const vertical=xScale.values.map(tick=>{const x=frame.left+(tick-view.xMin)*(frame.right-frame.left)/(view.xMax-view.xMin);return `<path d="M${x} ${frame.top}V${frame.bottom}" stroke="rgba(255,255,255,.08)"/><text data-x-tick x="${x}" y="178" text-anchor="middle">${formatAxisTick(tick,xScale.step)}</text>`;}).join("");
+          const yUnit=kind === "magnitude" ? "Magnitude (dB)" : "Phase (deg)", clipId=`clip-${kind}-${series.name.replace(/[^A-Za-z0-9_-]/g,"-")}`;
+          const domain=[view.xMin,view.xMax,view.yMin,view.yMax].map(value=>Number(value.toPrecision(10))).join(",");
+          return `<div class="plot-item ${state.plotMode === "zoom" ? "zoom-mode" : ""}" data-plot-key="${escapeHtml(key)}" data-domain="${domain}"><div class="plot-item-head"><strong>${escapeHtml(series.name)}</strong></div><svg viewBox="0 0 370 195" role="img" aria-label="${escapeHtml(`${series.name} ${kind} versus frequency`)}"><defs><clipPath id="${clipId}"><rect x="${frame.left}" y="${frame.top}" width="${frame.right-frame.left}" height="${frame.bottom-frame.top}"/></clipPath></defs><g fill="rgba(239,240,255,.62)" font-size="8" font-family="system-ui,sans-serif">${horizontal}${vertical}<text data-y-unit x="15" y="87" text-anchor="middle" transform="rotate(-90 15 87)">${yUnit}</text><text data-x-unit x="${(frame.left+frame.right)/2}" y="192" text-anchor="middle">Frequency (${escapeHtml(state.plot.unit)})</text></g><path d="M${frame.left} ${frame.top}V${frame.bottom}H${frame.right}" fill="none" stroke="rgba(255,255,255,.22)"/><path d="${chartPath(frequency,values,frame,view.xMin,view.xMax,view.yMin,view.yMax)}" clip-path="url(#${clipId})" fill="none" stroke="${kind === "magnitude" ? "#8bdef8" : "#ef75bd"}" stroke-width="1.8" vector-effect="non-scaling-stroke"/><rect data-zoom-box hidden x="0" y="0" width="0" height="0" fill="rgba(139,222,248,.15)" stroke="#8bdef8" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/></svg></div>`;
+        }).join("");
+        bindPlotInteractions();
+      }
+      function parameterChoices(selected) {
+        const values=["自动"];
+        for(let output=1;output<=8;output++) for(let input=1;input<=8;input++) values.push(`S${output}${input}`);
+        for(const block of ["DD","DC","CD","CC"]) for(let output=1;output<=4;output++) for(let input=1;input<=4;input++) values.push(`S${block}${output}${input}`);
+        if(!values.includes(selected)) values.push(selected);
+        return values.map(item => `<option value="${escapeHtml(item)}" ${item===selected ? "selected" : ""}>${escapeHtml(item === "自动" ? "Unassigned" : displaySource(item))}</option>`).join("");
+      }
+      function displaySource(source) {
+        const exact={"自动":"Unassigned","公式":"Formula","反射 -20 dB":"Return loss −20 dB","耦合 -80 dB":"Crosstalk −80 dB","未知":"Unassigned","深蓝":"Dark blue","红":"Red","绿":"Green","浅蓝":"Light blue"};
+        const text=String(source ?? "");
+        if(exact[text])return exact[text];
+        return text.replace(/^输出\s+(\d+)$/, "Output $1").replace(/^图(\d+)\s/, "Image $1 ").replace(/深蓝/g,"Dark blue").replace(/浅蓝/g,"Light blue").replace(/红/g,"Red").replace(/绿/g,"Green");
+      }
+      function curveLabel(curveId) {
+        const ordinal=String(curveId || "").toUpperCase().charCodeAt(0)-64;
+        return Number.isInteger(ordinal) && ordinal>0 ? `Trace ${ordinal}` : "Trace";
+      }
+      function displayCurveSource(source) {
+        const match=String(source ?? "").match(/^图(\d+)\s+([A-Z])\s+·\s+(.+)$/);
+        if(!match)return displaySource(source);
+        const image=state.datasheet?.images?.[Number(match[1])-1];
+        const curve=image?.curves?.find(item => item.id===match[2]);
+        if(!curve)return displaySource(source);
+        const suffix=displaySource(match[3]);
+        const color=displaySource(curve.color);
+        return `Image ${match[1]} · ${curveLabel(curve.id)} · ${color}${suffix===color ? "" : ` · ${suffix}`}`;
+      }
+      function traceSummary(image) {
+        const count=Number(image?.curves?.length || 0);
+        if(!count)return "No traces";
+        return `${count} ${count===1 ? "trace" : "traces"} available`;
+      }
+      function traceProvenance(curve) {
+        const observed=Number(curve?.observed_samples || curve?.samples || 0);
+        const shared=Number(curve?.shared_overlap_samples || 0);
+        const interpolated=Number(curve?.interpolated_samples || 0);
+        const total=Number(curve?.samples || observed + shared + interpolated || 0);
+        return `${total} total · ${observed} observed${shared ? ` · ${shared} shared` : ""}${interpolated ? ` · ${interpolated} interpolated` : ""}`;
+      }
+      function traceDisplayRgb(curve,index=0) {
+        return curve?.rgb || [186,166,178];
+      }
+      function unresolvedParameters(network) {
+        const unresolved=new Set(["自动","未知","公式"]);
+        return Object.entries(network?.mappings || {}).filter(([,source])=>unresolved.has(String(source))).map(([parameter])=>parameter);
+      }
+      function unassignedNetworkMessage(network) {
+        return "";
+      }
+      function displayMessage(message) {
+        const text=String(message ?? "");
+        const exact={
+          "窗口尚未准备好。":"The window is not ready.",
+          "请选择 Touchstone 输入文件。":"Choose a Touchstone input file.",
+          "无法打开 Touchstone 选择窗口，请重试。":"Unable to open the Touchstone picker. Try again.",
+          "正在生成。":"Generation is already in progress.",
+          "尚未生成文件。":"No output has been generated yet.",
+          "手绘至少需要 2 个控制点。":"Draw mode requires at least two control points.",
+          "生成模式无效。":"The generation mode is invalid.",
+          "频率单位无效。":"The frequency unit is invalid.",
+          "生成完成后再关闭窗口。":"Wait for generation to finish before closing the window.",
+          "图片步进当前仅支持线性扫频。":"Image frequency steps currently support linear sweeps only.",
+          "频率刻度必须是线性或对数。":"Frequency scale must be Linear or Log.",
+          "对数频率必须从正频率开始。":"Log frequency must start above 0 Hz.",
+          "终止频率必须大于起始频率。":"Stop frequency must be greater than start frequency.",
+          "图片频率设置无效。":"The image frequency settings are invalid.",
+          "请先设置图片频率范围。":"Set the image frequency range first.",
+          "请先完整设置图片坐标轴。":"Set Start, Stop, Step, Y Max, and Y Min first.",
+          "图片识别进行中，暂不能删除图片。":"Wait for digitization to finish before removing an image.",
+          "Y 轴最大值必须大于最小值。":"Y Max must be greater than Y Min.",
+          "图片在识别期间已改变，请重试。":"The image changed during digitization; try again.",
+          "图片识别失败。":"Image digitization failed.",
+          "无法打开图片选择窗口，请重试。":"Unable to open the image picker. Try again.",
+          "图片频点数量必须是 2–200000。":"Image point count must be between 2 and 200000.",
+          "输出频点数量必须是 2–200000。":"Output point count must be between 2 and 200000.",
+          "图片数量已达 32 张上限。":"The 32-image limit has been reached.",
+          "图片总大小已达 128 MB 上限。":"The 128 MB image limit has been reached.",
+          "曲线编号无效。":"The curve index is invalid.",
+          "图片或参数无效。":"The image or parameter is invalid.",
+          "输出数量必须是 1–6。":"Output count must be between 1 and 6.",
+          "参数类型无效。":"The parameter set is invalid.",
+          "混合模需要偶数个物理端口。":"Mixed-mode parameters require an even physical-port count.",
+          "输出或端口无效。":"The output or port count is invalid.",
+          "输出无效。":"The selected output is invalid.",
+          "补齐策略无效。":"The fill policy is invalid.",
+          "频率范围策略无效。":"The frequency-range policy is invalid.",
+          "频率范围设置无效。":"The frequency-range settings are invalid.",
+          "\u6210\u5bf9\u8054\u52a8\u503c\u65e0\u6548\u3002":"The reciprocal setting is invalid.",
+          "S 参数无效。":"The S-parameter is invalid.",
+          "曲线来源无效。":"The curve source is invalid.",
+          "所选图片没有共同频率范围。":"The selected images have no common frequency range.",
+          "该范围超出部分图片，需明确使用默认值补齐。":"This range exceeds one or more images; enable default-value fill explicitly.",
+          "手动步进不能整除起始与终止频率范围。":"The manual step must divide the start-to-stop span exactly.",
+          "图片没有共同频率范围":"The images have no common frequency range"
+        };
+        if(exact[text])return exact[text];
+        const patterns=[
+          [/^已跳过不支持的文件：(.+)$/, "Unsupported file: $1"],
+          [/^无法读取：(.+)$/, "Unable to read: $1"],
+          [/^图片超过 20 MB：(.+)$/, "Image exceeds 20 MB: $1"],
+          [/^图片已存在：(.+)$/, "Image already added: $1"],
+          [/^输出文件已存在：(.+)$/, "Output file already exists: $1"],
+          [/^无法启动生成任务：(.+)$/, "Unable to start generation: $1"],
+          [/^未分配通道：(.+)。请选择识别曲线或默认曲线。$/, "Unassigned channels: $1. Choose a detected trace, Return loss −20 dB, or Crosstalk −80 dB."],
+          [/^端口必须是 (.+)。$/, "Port count must be one of: $1."],
+          [/^\u5e38\u89c4\u751f\u6210\u4ec5\u652f\u6301 (.+) \u7aef\u53e3\u3002$/, "Generator port count must be one of: $1."]
+        ];
+        for(const [pattern,replacement] of patterns)if(pattern.test(text))return text.replace(pattern,replacement);
+        return /[\u3400-\u9fff]/.test(text) ? "Operation could not be completed. Check the selected files and settings." : text;
+      }
+      function coverageText(coverage) {
+        if(!coverage || coverage.status==="needs-grid") return "Set Manual Start / Stop / Step";
+        if(coverage.status==="missing-axis") return `Set frequency for image ${coverage.missing_images.join(", ")}`;
+        if(coverage.status==="conflict") return "Frequency ranges do not overlap";
+        if(coverage.status==="requires-fill") return "Missing range requires fill";
+        if(coverage.status==="invalid-grid") return "Frequency grid is invalid";
+        const grid=`${formatFrequency(coverage.start_hz)}–${formatFrequency(coverage.stop_hz)} · Step ${formatFrequency(coverage.step_hz)} · ${coverage.points} points`;
+        const resampling=coverage.resampled_channels ? ` · ${coverage.resampled_channels} channel${coverage.resampled_channels===1 ? "" : "s"} resampled` : "";
+        const fill=coverage.uses_fill ? " · Default fill" : "";
+        const unresolved=coverage.status==="unresolved" ? ` · ${coverage.unresolved_channels} unassigned — choose a trace or default curve` : "";
+        return grid+resampling+fill+unresolved;
+      }
+      function renderPortChoices(select, selected, family="single-ended") {
+        const current=Number(selected), options=state.portOptions.filter(port=>family!=="mixed-mode" || port%2===0);
+        if(Number.isInteger(current)&&!options.includes(current))options.push(current);
+        select.innerHTML=options.map(port => `<option value="${port}" ${port===current ? "selected" : ""} ${state.portOptions.includes(port) && (family!=="mixed-mode" || port%2===0) ? "" : "disabled"}>${port}</option>`).join("");
+      }
+      function digitizationOverlay(image) {
+        const result=image?.digitization;
+        if(result?.status!=="digitized" || !result.image_width || !result.image_height)return "";
+        const box=result.plot_box || [];
+        const rectangle=box.length===4 ? `<rect x="${box[0]}" y="${box[1]}" width="${box[2]-box[0]}" height="${box[3]-box[1]}" fill="none" stroke="#8bdef8" stroke-width="2" vector-effect="non-scaling-stroke"/>` : "";
+        const traces=(image.curves || []).map((curve,index) => `<polyline data-overlay-trace="${escapeHtml(curve.id)}" data-trace-color="${traceDisplayRgb(curve,index).join(",")}" points="${(curve.preview_points || []).map(point => `${point[0]},${point[1]}`).join(" ")}" fill="none" stroke="rgb(${traceDisplayRgb(curve,index).join(",")})" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`).join("");
+        return `<svg viewBox="0 0 ${result.image_width} ${result.image_height}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${rectangle}${traces}</svg>`;
+      }
+      function highlightTrace(curveId, persist=false) {
+        const lines=$$("[data-overlay-trace]");
+        const requested=String(curveId || "");
+        const active=lines.some(line=>line.dataset.overlayTrace===requested) ? requested : null;
+        if(persist)state.selectedTrace=active;
+        lines.forEach(line=>{
+          const selected=!active || line.dataset.overlayTrace===active;
+          line.style.opacity=selected ? "1" : ".16";
+          line.style.strokeWidth=selected && active ? "4.5" : "2.5";
+        });
+        $$("[data-trace-row]").forEach(row=>row.classList.toggle("active",Boolean(active)&&row.dataset.traceRow===active));
+      }
+      function refreshDigitizeAvailability() {
+        const hasImage=Boolean(state.datasheet?.images?.length);
+        const calibrated=["#image-f-start","#image-f-stop","#image-f-step","#image-y-max","#image-y-min"].every(id => value(id).trim());
+        $("#digitize-image").disabled=!hasImage || !calibrated || state.digitizing;
+      }
+      function renderDatasheet(payload) {
+        if (payload.images_added) {
+          const existing=state.datasheet?.images || [], known=new Set(existing.map(image => image.sha256));
+          const images=[...existing,...payload.images_added.filter(image => !known.has(image.sha256))];
+          payload={...(state.datasheet || {}),...payload,images};
+        }
+        if (payload.image_update && state.datasheet) {
+          const images=(state.datasheet.images || []).map((image,index) => index===payload.image_update.index-1 ? {...image,...payload.image_update} : image);
+          payload={...state.datasheet,...payload,images};
+        }
+        if (payload.image_removed && state.datasheet) {
+          const removedIndex=Number(payload.image_removed)-1;
+          if(removedIndex < state.selectedImage)state.selectedImage-=1;
+          const updates=new Map((payload.image_updates || []).map(image => [Number(image.index),image]));
+          const images=(state.datasheet.images || []).filter((_image,index) => index!==removedIndex).map((image,index) => ({...image,...(updates.get(index+1) || {}),index:index+1}));
+          payload={...state.datasheet,...payload,images};
+        }
+        if (state.datasheet && !Object.prototype.hasOwnProperty.call(payload,"images")) payload={...state.datasheet,...payload};
+        for(const transient of ["images_added","image_update","image_removed","image_updates"])delete payload[transient];
+        state.datasheet = payload;
+        const networks = payload.networks || [];
+        state.selectedNetwork = Math.min(state.selectedNetwork, Math.max(0, networks.length-1));
+        $("#network-count").value = networks.length;
+        $("#network-list").innerHTML = networks.map((network,index) => `<button type="button" class="network-item ${index === state.selectedNetwork ? "active" : ""}" data-network="${index}"><strong>${escapeHtml(displaySource(network.name))}</strong><small>${network.port_count}P · ${network.parameter_family === "mixed-mode" ? "Mixed-mode" : "Sij"}</small></button>`).join("");
+        $$('[data-network]').forEach(button => button.addEventListener("click", () => { state.selectedNetwork=Number(button.dataset.network); renderDatasheet(state.datasheet); }));
+        const images = payload.images || [];
+        state.selectedImage = Math.min(state.selectedImage, Math.max(0, images.length-1));
+        $("#image-list").innerHTML = images.length ? images.map((image,index) => { const detected=image.digitization?.detected_parameter; const assigned=[...new Set((image.curves || []).map(curve => curve.parameter).filter(parameter => parameter!=="自动"))]; const curveParameter=assigned.length ? assigned.join(", ") : detected || "Unassigned"; const imageStatus=image.digitization?.status; const result=imageStatus === "digitized" ? `${traceSummary(image)} · ${curveParameter}` : imageStatus === "analyzing" ? "Analyzing" : imageStatus === "review" || imageStatus === "failed" ? "Review" : imageStatus === "ready" ? "Detected" : "Required"; return `<button type="button" class="image-item ${index === state.selectedImage ? "active" : ""}" data-image="${index}" ${state.digitizing ? "disabled" : ""}><strong>Image ${image.index}</strong><small>${escapeHtml(image.name)}</small><small>${escapeHtml(result)}</small></button>`; }).join("") : '<div class="status">No images</div>';
+        $$('[data-image]').forEach(button => button.addEventListener("click", () => { state.selectedImage=Number(button.dataset.image); state.selectedTrace=null; renderDatasheet(state.datasheet); }));
+        const image = images[state.selectedImage];
+        $("#image-preview").innerHTML = image ? `<img alt="${escapeHtml(image.name)}" src="${image.data_url}">${digitizationOverlay(image)}` : '<span class="status">No images</span>';
+        for(const input of [$("#image-f-start"),$("#image-f-stop"),$("#image-f-step"),$("#image-spacing"),$("#image-y-max"),$("#image-y-min")]) input.disabled=!image || state.digitizing;
+        $("#add-images").disabled=!state.datasheet||state.digitizing||state.importing;
+        $("#add-images").textContent=state.importing ? "Selecting…" : state.digitizing ? "Analyzing…" : "Add";
+        $("#remove-image").disabled=!image || state.digitizing;
+        $("#image-f-start").value=image ? image.axis.start : ""; $("#image-f-stop").value=image ? image.axis.stop : ""; $("#image-f-step").value=image ? image.axis.step : "";
+        $("#image-spacing").value=image?.axis?.spacing || "linear";
+        $("#image-y-max").value=image?.axis?.y_max_db ?? ""; $("#image-y-min").value=image?.axis?.y_min_db ?? "";
+        const digitization=image?.digitization;
+        $("#digitize-status").textContent=!image ? "No image" : digitization?.status === "digitized" ? `${String(image.axis?.source || "").startsWith("detected") ? "Detected" : "Manual"} · ${traceSummary(image)}` : digitization?.status === "analyzing" ? "Analyzing" : digitization?.status === "review" || digitization?.status === "failed" ? "Review" : digitization?.status === "ready" ? "Detected · Ready" : "Required";
+        $("#digitize-image").textContent=digitization?.status === "digitized" ? "Re-digitize" : "Digitize";
+        $("#curve-controls").innerHTML=image ? image.curves.map((curve,index) => `<label class="curve-control" data-trace-row="${escapeHtml(curve.id)}"><span class="curve-swatch" title="Trace display color; source ${escapeHtml(displaySource(curve.color))}" data-trace-color="${traceDisplayRgb(curve,index).join(",")}" style="background:rgb(${traceDisplayRgb(curve,index).join(",")})"></span><b>${escapeHtml(curveLabel(curve.id))}</b><small>Source ${escapeHtml(displaySource(curve.color))} · ${escapeHtml(traceProvenance(curve))}</small><select aria-label="${escapeHtml(`${curveLabel(curve.id)} parameter; detected color ${displaySource(curve.color)}`)}" data-curve="${escapeHtml(curve.id)}">${parameterChoices(curve.parameter)}</select></label>`).join("") : "";
+        $("#curve-title").textContent=image?.curves?.length ? `Detected Traces · ${image.curves.length}` : "Detected Traces";
+        $("#curve-title").classList.toggle("hidden",!image?.curves?.length);
+        $$('[data-curve]').forEach(select => select.addEventListener("change", async () => {
+          const response=await callApi("set_curve_parameter",state.selectedImage,select.dataset.curve,select.value);
+          if(response.ok)renderDatasheet(response);else status.textContent=displayMessage(response.error);
+        }));
+        $$('[data-trace-row]').forEach(row => {
+          row.addEventListener("mouseenter",()=>highlightTrace(row.dataset.traceRow));
+          row.addEventListener("mouseleave",()=>highlightTrace(state.selectedTrace));
+          row.addEventListener("click",event=>{if(!event.target.matches("select"))highlightTrace(row.dataset.traceRow,true);});
+        });
+        highlightTrace(state.selectedTrace);
+        if (!networks.length) return;
+        const network = networks[state.selectedNetwork];
+        $("#network-family").value=network.parameter_family; renderPortChoices($("#network-ports"),network.port_count,network.parameter_family); $("#network-output").value = network.output; $("#network-reciprocal").checked = network.reciprocal;
+        $("#generate-network").disabled=state.imageGenerating;
+        $("#generate-network").textContent=state.imageGenerating ? "Generating" : "Generate File";
+        const policy=network.frequency_policy; $("#frequency-policy").value=policy.mode; $("#output-f-start").value=policy.start || ""; $("#output-f-stop").value=policy.stop || ""; $("#output-f-step").value=policy.step || ""; $("#frequency-fill").checked=Boolean(policy.allow_fill);
+        $("#manual-frequency").classList.toggle("hidden",policy.mode!=="manual"); $("#fill-option").classList.toggle("hidden",policy.mode==="intersection");
+        $("#coverage-status").textContent=coverageText(network.coverage)+(network.parameter_family === "mixed-mode" ? " · Mixed-mode retained" : "");
+        const availableTraces=images.reduce((count,item)=>count+(item.curves?.length || 0),0);
+        $("#mapping-hint").textContent=availableTraces ? `${availableTraces} trace${availableTraces === 1 ? "" : "s"} available · detected labels are hints` : "";
+        $("#mapping-grid").innerHTML = Object.entries(network.mappings).map(([parameter,source]) => { const options=network.mapping_options?.[parameter] || payload.source_options || []; return `<div class="mapping"><label>${escapeHtml(parameter)}</label><select data-mapping="${escapeHtml(parameter)}">${options.map(option => `<option value="${escapeHtml(option)}" ${option === source ? "selected" : ""}>${escapeHtml(displayCurveSource(option))}</option>`).join("")}</select></div>`; }).join("");
+        $$('[data-mapping]').forEach(select => select.addEventListener("change", async () => {
+          const response = await callApi("set_mapping", state.selectedNetwork, select.dataset.mapping, select.value);
+          if (response.ok) { const selected=select.value.match(/^图(\d+)\s+([A-Z]+)\s+·/); renderDatasheet(response); if(selected&&Number(selected[1])-1===state.selectedImage)highlightTrace(selected[2],true); } else status.textContent=displayMessage(response.error);
+        }));
+        refreshDigitizeAvailability();
+      }
+      window.insertionLossUiProbe=Object.freeze({
+        render:payload=>renderDatasheet(payload),
+        rerender:()=>renderDatasheet(state.datasheet),
+        imageCount:()=>Number(state.datasheet?.images?.length || 0)
+      });
+      function applyDefaults(defaults) {
+        state.portOptions=defaults.port_options.map(Number); renderPortChoices($("#ports"),defaults.ports); setValue("#points",defaults.points); setValue("#f-start",defaults.f_start); setValue("#f-stop",defaults.f_stop);
+        setValue("#spacing",defaults.spacing); setValue("#format",defaults.format); setValue("#frequency-unit",defaults.frequency_unit);
+        setValue("#return-loss",defaults.return_loss_db); setValue("#crosstalk",defaults.crosstalk_db); setValue("#delay",defaults.delay_ps);
+        setValue("#phase-offset",defaults.phase_offset_deg); setValue("#z0",defaults.z0); setValue("#through-pairs",defaults.through_pairs); setValue("#output",defaults.output);
+        setValue("#loss-start-db",defaults.linear.loss_start_db); setValue("#loss-stop-db",defaults.linear.loss_stop_db);
+        setValue("#formula-a",defaults.formula.a); setValue("#formula-b",defaults.formula.b); setValue("#formula-c",defaults.formula.c); setValue("#model-unit",defaults.formula.model_frequency_unit);
+        setValue("#control-points",defaults.draw.control_points); setValue("#draw-min",defaults.draw.loss_min_db); setValue("#draw-max",defaults.draw.loss_max_db); setValue("#draw-fit",defaults.draw.fit); setValue("#draw-domain",defaults.draw.fit_domain);
+        setValue("#modify-input",defaults.modify.input); setValue("#targets",defaults.modify.targets); setValue("#pairs",defaults.modify.pairs); setValue("#smoothness",defaults.modify.smoothness); setValue("#smooth-domain",defaults.modify.smooth_domain);
+        $("#anchor-edges").checked=defaults.modify.anchor_edges; $("#insert-targets").checked=defaults.modify.insert_targets; $("#overwrite").checked=defaults.overwrite;
+        renderDatasheet(defaults.datasheet); drawBoard();
+      }
+      window.insertionLoss = { receive(payload) {
+        if (payload.type === "success") { const outputName=String(payload.output || "").split(/[\\/]/).pop(); setRunning(false); state.plot=payload.plot; state.plotViews={}; renderPlot(); status.textContent=`Generated${outputName ? ` ${outputName}` : ""} · σmax ${Number(payload.sigma_max).toFixed(6)}`; }
+        if (payload.type === "error") { setRunning(false); status.textContent=displayMessage(payload.error); }
+        if (payload.type === "notice") status.textContent=displayMessage(payload.message);
+      }};
+      $$('[data-tab]').forEach(button => button.addEventListener("click", () => switchTab(button.dataset.tab)));
+      $$('[data-mode]').forEach(button => button.addEventListener("click", () => switchMode(button.dataset.mode)));
+      $$('[data-plot]').forEach(button => button.addEventListener("click", () => { state.plotKind=button.dataset.plot; $$('[data-plot]').forEach(item => item.classList.toggle("active",item===button)); renderPlot(); }));
+      $('[data-plot-action="zoom"]').addEventListener("click",()=>setPlotMouseMode("zoom"));
+      $('[data-plot-action="pan"]').addEventListener("click",()=>setPlotMouseMode("pan"));
+      $('[data-plot-action="reset"]').addEventListener("click",resetPlots);
+      const refreshDrawEditor=()=>{if(state.mode==="draw")showDrawEditor();else drawBoard();};
+      $("#control-points").addEventListener("input",refreshDrawEditor); ["#f-start","#f-stop","#draw-min","#draw-max"].forEach(id => $(id).addEventListener("input",refreshDrawEditor));
+      $("#frequency-unit").addEventListener("change",()=>{refreshDrawEditor();if(state.mode==="modify")loadModifyInput(value("#modify-input"));});
+      $("#draw-board").addEventListener("click", event => {
+        const rect=event.currentTarget.getBoundingClientRect();
+        const svgX=(event.clientX-rect.left)*DRAW_FRAME.width/rect.width, svgY=(event.clientY-rect.top)*DRAW_FRAME.height/rect.height;
+        const x=Math.min(1,Math.max(0,(svgX-DRAW_FRAME.left)/(DRAW_FRAME.right-DRAW_FRAME.left)));
+        const y=Math.min(1,Math.max(0,(svgY-DRAW_FRAME.top)/(DRAW_FRAME.bottom-DRAW_FRAME.top)));
+        const start=parseFrequency(value("#f-start")), stop=parseFrequency(value("#f-stop")), ymin=Number(value("#draw-min")), ymax=Number(value("#draw-max"));
+        if (!(start>0 && stop>start && ymax>ymin)) { status.textContent="Check the sweep and Y-axis limits first"; return; }
+        const frequency=start+x*(stop-start), db=ymax-y*(ymax-ymin), token=`${formatFrequency(frequency)}:${Number(db.toFixed(3))}`;
+        $("#control-points").value=[...value("#control-points").split(/[\n,]+/).map(item=>item.trim()).filter(Boolean),token].join(","); drawBoard();
+      });
+      $("#choose-output").addEventListener("click", async () => { const response=await callApi("choose_output",value("#ports")); if(response.ok&&!response.cancelled)setValue("#output",response.path); else if(!response.ok)status.textContent=displayMessage(response.error); });
+      $("#choose-input").addEventListener("click", async () => { const response=await callApi("choose_input"); if(response.ok&&!response.cancelled)await loadModifyInput(response.path); else if(!response.ok){const message=displayMessage(response.error);setModifyInputStatus(message,true);status.textContent=message;} });
+      $("#modify-input").addEventListener("change",event=>loadModifyInput(event.target.value));
+      $("#modify-input").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();loadModifyInput(event.target.value);}});
+      $("#generate").addEventListener("click", async () => { if(state.running)return; setRunning(true); status.textContent="Generating"; try { const response=await callApi("run_generation",collectConfig()); if(!response.ok){setRunning(false);status.textContent=displayMessage(response.error);} } catch(_error){setRunning(false);status.textContent="Unable to start generation";} });
+      $("#open-output").addEventListener("click", async () => { const response=await callApi("open_output_dir"); if(!response.ok)status.textContent=displayMessage(response.error); });
+      $("#generate-network").addEventListener("click", async () => {
+        if(state.imageGenerating||!state.datasheet?.networks?.length)return;
+        const network=state.datasheet.networks[state.selectedNetwork], preflight=unassignedNetworkMessage(network);
+        if(preflight){status.textContent=preflight;return;}
+        state.imageGenerating=true;renderDatasheet(state.datasheet);status.textContent="Generating image-composed Touchstone file";
+        try {
+          const response=await callApi("generate_datasheet_network",state.selectedNetwork);
+          if(!response.ok){status.textContent=displayMessage(response.error);return;}
+          const outputName=String(response.output || "").split(/[\\/]/).pop();
+          status.textContent=`Generated ${outputName} · ${response.points} points · image phase set to 0°`;
+        } catch(_error) { status.textContent="Unable to generate image-composed file"; }
+        finally { state.imageGenerating=false;renderDatasheet(state.datasheet); }
+      });
+      $("#open-image-output").addEventListener("click", async () => { const response=await callApi("open_datasheet_output_dir"); if(!response.ok)status.textContent=displayMessage(response.error); });
+      $("#add-images").addEventListener("click", async () => {
+        if(!state.datasheet){status.textContent="Wait for the workspace to load";return;}
+        if(state.importing||state.digitizing){status.textContent=state.importing ? "Image picker is already open" : "Wait for image analysis to finish";return;}
+        state.importing=true; renderDatasheet(state.datasheet); status.textContent="Opening image picker";
+        await new Promise(resolve=>requestAnimationFrame(resolve));
+        let response;
+        try { response=await callApi("choose_images"); }
+        catch(_error) { state.importing=false; renderDatasheet(state.datasheet); status.textContent="Unable to import images. Try again."; return; }
+        state.importing=false; renderDatasheet(state.datasheet);
+        if(!response.ok){status.textContent=displayMessage(response.error);return;}
+        if(response.cancelled){status.textContent="Image selection cancelled";return;}
+        const added=response.images_added || [];
+        renderDatasheet(response);
+        if(!added.length){status.textContent=response.warnings?.length ? displayMessage(response.warnings[0]) : `${response.image_count} images`;return;}
+        state.selectedImage=Number(added[0].index)-1;
+        state.digitizing=true; renderDatasheet(state.datasheet);
+        let digitized=0, review=0;
+        try {
+          for(const addedImage of added){
+            const imageIndex=Number(addedImage.index)-1;
+            status.textContent=`Analyzing image ${addedImage.index}`;
+            const analyzed=await callApi("analyze_image",imageIndex);
+            if(analyzed.image_update)renderDatasheet(analyzed);
+            if(!analyzed.ok || !analyzed.auto_digitize){review+=1;continue;}
+            const axis=analyzed.image_update.axis;
+            const recognized=await callApi("digitize_image",imageIndex,axis.y_min_db,axis.y_max_db);
+            if(recognized.image_update)renderDatasheet(recognized);
+            if(recognized.ok)digitized+=1;else review+=1;
+          }
+        } catch(_error){review+=1;}
+        finally {
+          state.digitizing=false; renderDatasheet(state.datasheet);
+          status.textContent=review ? `${digitized} detected · ${review} review` : `${digitized} detected`;
+        }
+      });
+      $("#remove-image").addEventListener("click", async () => {
+        if(state.digitizing || !state.datasheet?.images?.length)return;
+        const imageIndex=state.selectedImage;
+        const response=await callApi("remove_image",imageIndex);
+        if(response.ok){renderDatasheet(response);status.textContent="Image removed";}else status.textContent=displayMessage(response.error);
+      });
+      async function updateImageFrequency() {
+        const start=value("#image-f-start").trim(), stop=value("#image-f-stop").trim(), step=value("#image-f-step").trim();
+        if(!state.datasheet?.images?.length || !start || !stop || !step) return;
+        const response=await callApi("set_image_frequency",state.selectedImage,start,stop,step,value("#image-spacing"));
+        if(response.ok){renderDatasheet(response);status.textContent="Frequency updated";}else status.textContent=displayMessage(response.error);
+      }
+      ["#image-f-start","#image-f-stop","#image-f-step","#image-spacing"].forEach(id => $(id).addEventListener("change",updateImageFrequency));
+      ["#image-f-start","#image-f-stop","#image-f-step","#image-y-max","#image-y-min"].forEach(id => $(id).addEventListener("input",refreshDigitizeAvailability));
+      $("#digitize-image").addEventListener("click", async () => {
+        if(state.digitizing || !state.datasheet?.images?.length)return;
+        const imageIndex=state.selectedImage;
+        const start=value("#image-f-start").trim(), stop=value("#image-f-stop").trim(), step=value("#image-f-step").trim();
+        const yMax=value("#image-y-max").trim(), yMin=value("#image-y-min").trim();
+        state.digitizing=true; renderDatasheet(state.datasheet); $("#digitize-image").textContent="Digitizing"; status.textContent="Digitizing image";
+        try {
+          const calibrated=await callApi("set_image_frequency",imageIndex,start,stop,step,value("#image-spacing"));
+          if(!calibrated.ok){status.textContent=displayMessage(calibrated.error);return;}
+          calibrated.image_update.axis={...calibrated.image_update.axis,y_min_db:Number(yMin),y_max_db:Number(yMax)};
+          renderDatasheet(calibrated);
+          const response=await callApi("digitize_image",imageIndex,yMin,yMax);
+          if(response.ok){renderDatasheet(response);status.textContent=response.image_update.digitization.message;}else {if(response.image_update)renderDatasheet(response);status.textContent=displayMessage(response.error);}
+        } catch(_error) { status.textContent="Digitization could not be completed"; }
+        finally { state.digitizing=false; $("#digitize-image").textContent="Digitize"; renderDatasheet(state.datasheet); }
+      });
+      const zoomDialog=$("#image-zoom"), zoomStage=$("#zoom-stage"), zoomImage=$("#zoom-image");
+      function applyZoom(scale) {
+        state.zoom.scale=Math.min(8,Math.max(state.zoom.fit,scale));
+        zoomImage.style.width=`${zoomImage.naturalWidth*state.zoom.scale}px`; zoomImage.style.height=`${zoomImage.naturalHeight*state.zoom.scale}px`;
+        $("#zoom-level").value=`${Math.round(state.zoom.scale*100)}%`;
+      }
+      function fitZoom() {
+        if(!zoomImage.naturalWidth||!zoomImage.naturalHeight)return;
+        state.zoom.fit=Math.min(1,(zoomStage.clientWidth-8)/zoomImage.naturalWidth,(zoomStage.clientHeight-8)/zoomImage.naturalHeight);
+        applyZoom(state.zoom.fit); zoomStage.scrollLeft=0; zoomStage.scrollTop=0;
+      }
+      function showImageZoom() {
+        const image=state.datasheet?.images?.[state.selectedImage]; if(!image)return;
+        zoomImage.onload=fitZoom; zoomImage.src=image.data_url; zoomImage.alt=image.name; zoomDialog.showModal();
+        if(zoomImage.complete)requestAnimationFrame(fitZoom);
+      }
+      $("#image-preview").addEventListener("click",showImageZoom);
+      $("#image-preview").addEventListener("keydown",event => { if(event.key==="Enter"||event.key===" "){event.preventDefault();showImageZoom();} });
+      $("#zoom-in").addEventListener("click",()=>applyZoom(state.zoom.scale*1.25));
+      $("#zoom-out").addEventListener("click",()=>applyZoom(state.zoom.scale/1.25));
+      $("#zoom-reset").addEventListener("click",fitZoom);
+      zoomStage.addEventListener("wheel",event => { event.preventDefault(); applyZoom(state.zoom.scale*(event.deltaY<0?1.15:1/1.15)); },{passive:false});
+      zoomStage.addEventListener("pointerdown",event => { state.zoom.dragging=true; state.zoom.x=event.clientX; state.zoom.y=event.clientY; state.zoom.left=zoomStage.scrollLeft; state.zoom.top=zoomStage.scrollTop; zoomStage.classList.add("dragging"); zoomStage.setPointerCapture(event.pointerId); });
+      zoomStage.addEventListener("pointermove",event => { if(!state.zoom.dragging)return; zoomStage.scrollLeft=state.zoom.left-(event.clientX-state.zoom.x); zoomStage.scrollTop=state.zoom.top-(event.clientY-state.zoom.y); });
+      zoomStage.addEventListener("pointerup",event => { state.zoom.dragging=false; zoomStage.classList.remove("dragging"); zoomStage.releasePointerCapture(event.pointerId); });
+      $("#close-image-zoom").addEventListener("click",()=>zoomDialog.close());
+      $("#network-count").addEventListener("change", async event => { const response=await callApi("set_network_count",event.target.value); if(response.ok)renderDatasheet(response);else status.textContent=displayMessage(response.error); });
+      $("#network-family").addEventListener("change", async event => { const response=await callApi("set_network_parameter_family",state.selectedNetwork,event.target.value); if(response.ok)renderDatasheet(response);else {renderDatasheet(state.datasheet);status.textContent=displayMessage(response.error);} });
+      $("#network-ports").addEventListener("change", async event => { const response=await callApi("set_network_ports",state.selectedNetwork,event.target.value); if(response.ok)renderDatasheet(response);else {renderDatasheet(state.datasheet);status.textContent=displayMessage(response.error);} });
+      $("#network-reciprocal").addEventListener("change", async event => { const response=await callApi("set_network_reciprocal",state.selectedNetwork,event.target.checked); if(response.ok)renderDatasheet(response);else status.textContent=displayMessage(response.error); });
+      async function updateFrequencyPolicy() {
+        const mode=value("#frequency-policy"), start=value("#output-f-start").trim(), stop=value("#output-f-stop").trim(), step=value("#output-f-step").trim();
+        $("#manual-frequency").classList.toggle("hidden",mode!=="manual"); $("#fill-option").classList.toggle("hidden",mode==="intersection");
+        if(mode==="manual" && (!start||!stop||!step)) return;
+        const response=await callApi("set_network_frequency_policy",state.selectedNetwork,mode,start,stop,step,$("#frequency-fill").checked);
+        if(response.ok)renderDatasheet(response);else {renderDatasheet(state.datasheet);status.textContent=displayMessage(response.error);}
+      }
+      $("#frequency-policy").addEventListener("change",updateFrequencyPolicy); $("#frequency-fill").addEventListener("change",updateFrequencyPolicy);
+      ["#output-f-start","#output-f-stop","#output-f-step"].forEach(id => $(id).addEventListener("change",updateFrequencyPolicy));
+      window.addEventListener("pywebviewready", async () => { try { applyDefaults(await callApi("get_defaults")); window.insertionLossReady=true; } catch(_error){status.textContent="Unable to load defaults";} });
+    })();
+  </script>
+</body>
+</html>

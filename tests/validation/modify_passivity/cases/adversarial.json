@@ -1,0 +1,1 @@
+{"partition":"adversarial","input":"known_failure.s2p","targets":"3GHz:0","pairs":"S21,S12","expected_error":"Requested target"}

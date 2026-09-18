@@ -1,0 +1,1 @@
+{"partition":"known_failure","symptom":"4-port path changed while 2-port preview and 801-point sweep stayed visible","required":"load metadata and 16-series preview immediately"}
