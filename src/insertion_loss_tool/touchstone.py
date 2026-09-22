@@ -591,6 +591,7 @@ def write_touchstone(
     *,
     frequency_unit: str = "GHZ",
     data_format: str = "RI",
+    comments: Sequence[str] = (),
 ) -> None:
     """Write a full matrix in a simple Touchstone 1.x-compatible form."""
 
@@ -655,6 +656,11 @@ def write_touchstone(
         "! Matrix convention: Sij means output port i due to input port j",
         f"# {frequency_unit} S {data_format} R {data.z0:g}",
     ]
+
+    # 将来源与假设作为合法 Touchstone 注释保存，换行逐行加前缀。
+    for comment in comments:
+        # Codex说明(自动生成)： 调用 lines.extend 更新列表或集合，把当前步骤产生的数据加入结果。
+        lines.extend("! " + line for line in str(comment).splitlines())
 
     # Codex说明(自动生成)： 遍历 zip(serialized_frequencies, data.s) 中的 (freq_text, matrix)，逐项执行循环体逻辑。
     for freq_text, matrix in zip(serialized_frequencies, data.s):
@@ -722,7 +728,7 @@ def touchstone_order(
 def to_magnitude_db(values: np.ndarray, *, floor_db: float = -300.0) -> np.ndarray:
     """Convert complex or real magnitudes to dB with a finite floor."""
 
-    # Codex说明(自动生成)： 计算并保存 magnitude，供后续语句继续读取或更新。
+    # 按校准上下边界把像素高度转换为带符号的幅度 dB。
     magnitude = np.abs(values)
     # Codex说明(自动生成)： 进入上下文 np.errstate(divide='ignore')，确保文件、资源或临时状态按作用域正确释放。
     with np.errstate(divide="ignore"):
@@ -836,7 +842,7 @@ def _parse_positive_int_keyword(keyword: str, value: str) -> int:
     if not value:
         # Codex说明(自动生成)： 抛出 ValueError(f'[{keyword}] is missing its value')，明确提示输入、状态或处理流程无法继续。
         raise ValueError(f"[{keyword}] is missing its value")
-    # Codex说明(自动生成)： 计算并保存 token，供后续语句继续读取或更新。
+    # 摘要覆盖局部曲线数据，旧确认不能用于修改后的网络。
     token = value.split()[0]
     # Codex说明(自动生成)： 计算并保存 parsed，供后续语句继续读取或更新。
     parsed = int(token)
@@ -850,7 +856,7 @@ def _parse_positive_int_keyword(keyword: str, value: str) -> int:
 
 # Codex说明(自动生成)： 定义函数 _parse_two_port_data_order，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
 def _parse_two_port_data_order(value: str) -> str:
-    # Codex说明(自动生成)： 计算并保存 token，供后续语句继续读取或更新。
+    # 摘要覆盖局部曲线数据，旧确认不能用于修改后的网络。
     token = value.split()[0].upper()
     # Codex说明(自动生成)： 检查条件 token in {'21_12', '12_21'}，根据结果选择后续执行路径。
     if token in {"21_12", "12_21"}:
@@ -890,11 +896,11 @@ def _pair_to_complex(first: float, second: float, data_format: str) -> complex:
     angle = np.deg2rad(second)
     # Codex说明(自动生成)： 检查条件 data_format == 'MA'，根据结果选择后续执行路径。
     if data_format == "MA":
-        # Codex说明(自动生成)： 计算并保存 magnitude，供后续语句继续读取或更新。
+        # 按校准上下边界把像素高度转换为带符号的幅度 dB。
         magnitude = first
     # Codex说明(自动生成)： 当前一分支未命中时，继续检查条件 data_format == 'DB'。
     elif data_format == "DB":
-        # Codex说明(自动生成)： 计算并保存 magnitude，供后续语句继续读取或更新。
+        # 按校准上下边界把像素高度转换为带符号的幅度 dB。
         magnitude = 10.0 ** (first / 20.0)
     # Codex说明(自动生成)： 处理前面条件都未命中时的默认分支。
     else:
@@ -910,7 +916,7 @@ def _complex_to_pair(value: complex, data_format: str) -> tuple[float, float]:
     if data_format == "RI":
         # Codex说明(自动生成)： 返回 (float(np.real(value)), float(np.imag(value)))，让调用方取得本函数的处理结果。
         return float(np.real(value)), float(np.imag(value))
-    # Codex说明(自动生成)： 计算并保存 magnitude，供后续语句继续读取或更新。
+    # 按校准上下边界把像素高度转换为带符号的幅度 dB。
     magnitude = abs(value)
     # Codex说明(自动生成)： 计算并保存 angle_deg，供后续语句继续读取或更新。
     angle_deg = float(np.rad2deg(np.angle(value)))
@@ -932,7 +938,7 @@ def _complex_to_pair(value: complex, data_format: str) -> tuple[float, float]:
 
 # Codex说明(自动生成)： 定义函数 _validate_frequency_axis，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
 def _validate_frequency_axis(frequency_hz: Sequence[float]) -> None:
-    # Codex说明(自动生成)： 计算并保存 frequency，供后续语句继续读取或更新。
+    # 把原图水平像素位置映射到线性或对数频率，单位 Hz。
     frequency = np.asarray(frequency_hz)
     if frequency.ndim != 1:
         raise ValueError("Frequencies must be one-dimensional")

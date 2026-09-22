@@ -19,6 +19,19 @@ from insertion_loss_tool.datasheet import (
 
 
 class DatasheetCompositionTests(unittest.TestCase):
+    def test_manual_grid_keeps_dc_and_rejects_negative_frequency(self) -> None:
+        """细步进建议可保留真实 DC，不能借此允许负频率。"""
+        result = compose_frequency_grid(
+            [], policy="manual", manual_start_hz=0,
+            manual_stop_hz=1e9, manual_step_hz=0.25e9,
+        )
+        np.testing.assert_array_equal(result.frequency_hz, [0, 0.25e9, 0.5e9, 0.75e9, 1e9])
+        with self.assertRaisesRegex(ValueError, "手动频率范围无效"):
+            compose_frequency_grid(
+                [], policy="manual", manual_start_hz=-1,
+                manual_stop_hz=1e9, manual_step_hz=1e8,
+            )
+
     def test_intersection_builds_one_uniform_master_grid(self) -> None:
         first = CurveResource(
             curve_id="image-1:A",

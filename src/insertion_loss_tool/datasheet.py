@@ -375,7 +375,9 @@ def compose_frequency_grid(
         start_hz = float(manual_start_hz)
         stop_hz = float(manual_stop_hz)
         step_hz = float(manual_step_hz)
-        if start_hz <= 0 or stop_hz <= start_hz or step_hz <= 0:
+        # 与图片曲线及公共范围一致，线性手动输出允许合法 DC 起点。
+        # 仅放宽起点为零；负频率、零步进和倒置范围仍不可生成。
+        if start_hz < 0 or stop_hz <= start_hz or step_hz <= 0:
             raise ValueError("手动频率范围无效。")
         uses_extrapolation = bool(
             curves

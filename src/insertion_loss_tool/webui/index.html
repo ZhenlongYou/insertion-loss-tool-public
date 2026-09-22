@@ -139,7 +139,7 @@
     .curve-control .curve-review { color:var(--soft); }
     .curve-control .curve-review.needs-review { color:var(--warning); }
     .curve-swatch { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 1px rgba(255,255,255,.28); }
-    .detail { grid-column:3; grid-row:1; padding:16px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; gap:11px; }
+    .detail { grid-column:3; grid-row:1; padding:16px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; gap:9px; }
     .detail-top { display:grid; grid-template-columns:minmax(145px,1fr) 100px; gap:9px; align-items:end; }
     .detail-top .field:nth-child(3), .detail-top .check { grid-column:1/-1; }
     .frequency-row { display:grid; grid-template-columns:minmax(0,1fr); gap:9px; align-items:end; }
@@ -154,9 +154,17 @@
     .datasheet-generate-row .secondary, .datasheet-generate-row .primary { height:40px; }
     .status { color:var(--soft); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-self:center; }
     #coverage-status { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35; align-self:start; }
+    .sampling-help { color:var(--warning); font-size:11px; line-height:1.4; }
     .foot { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:0 4px; }
     .boundary { color:var(--soft); font-size:10px; }
     dialog { width:min(92vw,1500px); height:min(90vh,1000px); border:1px solid var(--line); border-radius:18px; padding:12px; background:#121427; color:var(--ink); }
+    .image-model-options { margin:0; padding:0; border:0; }
+    .image-model-options summary { margin:0; }
+    .trace-editor-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:end; position:sticky; top:0; background:#182033; padding:8px; z-index:1; }
+    .trace-editor-toolbar > select, .trace-editor-toolbar > input { width:auto; flex:1 1 140px; min-width:100px; }
+    .trace-editor-toolbar input[type="color"] { flex:0 0 56px; min-width:56px; }
+    .trace-editor-toolbar label { width:auto; }
+    .trace-editor-toolbar label select { width:120px; }
     dialog::backdrop { background:rgba(4,5,14,.82); }
     .zoom-toolbar { height:36px; display:flex; align-items:center; justify-content:flex-end; gap:5px; }
     .zoom-toolbar button { min-width:34px; height:30px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.05); color:var(--ink); cursor:pointer; }
@@ -164,6 +172,9 @@
     .zoom-stage { width:100%; height:calc(100% - 36px); overflow:auto; background:rgba(5,6,16,.75); border-radius:10px; cursor:grab; }
     .zoom-stage.dragging { cursor:grabbing; }
     .zoom-stage img { display:block; margin:0 auto; max-width:none; max-height:none; user-select:none; -webkit-user-drag:none; }
+    .zoom-content { position:relative; margin:0 auto; }
+    .zoom-content svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .zoom-content img { width:100%; height:100%; }
     @media (max-width:1050px) {
       .app { padding:14px; }
       .generator { grid-template-columns:280px minmax(0,1fr); gap:12px; }
@@ -289,6 +300,7 @@
           <div id="image-preview" class="image-preview" role="button" tabindex="0" aria-label="Open image viewer"><span class="status">No images</span></div>
         </div>
         <small id="visual-review-help" class="axis-help hidden">Orange dashed areas need visual review before mapping or export.</small>
+        <div class="image-actions" style="flex-wrap:wrap;padding:8px"><button id="edit-image" type="button">Edit traces</button><button id="undo-image-edit" type="button">Undo correction</button><button id="save-image-recipe" type="button">Save recipe</button><button id="export-image-csv" type="button">Magnitude CSV</button></div>
         <div class="image-calibration">
           <label class="field"><span>Start</span><input id="image-f-start"></label>
           <label class="field"><span>Stop</span><input id="image-f-stop"></label>
@@ -316,6 +328,9 @@
           </div>
           <label id="fill-option" class="check hidden"><input id="frequency-fill" type="checkbox"><span>Fill Missing Range</span></label>
           <div id="coverage-status" class="status">Default Curves</div>
+          <div id="sampling-warning" class="sampling-help hidden" role="status"></div>
+          <button id="use-finer-step" type="button" class="hidden">Use finer step</button>
+        <details class="image-model-options"><summary>Phase and impedance assumptions</summary><div class="frequency-row"><label class="field"><span>Phase model</span><select id="image-phase"><option value="zero-degree">Assume zero phase</option><option value="delay">Assume fixed delay</option></select></label><label class="field"><span>Delay ns</span><input id="image-delay" type="number" value="0" min="0" step="any"></label><label class="field"><span>Reference impedance Ω</span><input id="image-z0" type="number" value="50" min="0" step="any"></label></div></details>
         </div>
         <div id="mapping-hint" class="mapping-hint"></div>
         <div id="mapping-grid" class="mapping-grid"></div>
@@ -323,12 +338,29 @@
       </article>
     </section>
 
+    <dialog id="image-editor" style="width:min(1200px,95vw);max-height:94vh;overflow:auto;background:#182033;color:white">
+      <div class="trace-editor-toolbar">
+        <select id="edit-mode"><option value="anchor">Add path anchor</option><option value="box">Plot box (two corners)</option><option value="exclude">Exclude region (two corners)</option><option value="colour">Pick source color</option></select>
+        <label>Zoom<select id="edit-scale"><option value="1">Fit width</option><option value="2">200%</option><option value="3">300%</option></select></label><select id="edit-trace" aria-label="Target trace"></select><input id="edit-label" aria-label="Trace identity" placeholder="Rx/Tx · IL/RL"><input id="edit-colour" type="color" aria-label="Trace color">
+        <button id="edit-add">Add trace</button><button id="edit-delete">Delete trace</button><button id="edit-clear-anchors">Clear anchors</button><button id="edit-undo">Undo edit</button>
+        <label>Load recipe<input id="edit-load" type="file" accept=".json" style="max-width:180px"></label>
+        <button id="edit-apply">Apply and retrace</button><button id="edit-close">Cancel</button>
+      </div>
+      <p id="edit-detail" aria-live="polite"></p><p id="edit-calibration" aria-live="polite" style="white-space:pre-wrap"></p><p>Opening uses the current main-page axis values. Loading a recipe uses its saved axes; inspect Current and On apply below before applying. Orange: plot boundary. Pink: excluded regions. Cyan: previous traces. Add anchors on both sides of ambiguous crossings. JPEG guidance is manual; review deep notches and missing pixels.</p>
+      <div style="overflow:auto;max-height:65vh"><canvas id="edit-canvas" style="width:100%;height:auto;cursor:crosshair" aria-label="Source trace editor"></canvas></div>
+    </dialog>
+    <dialog id="export-review" style="width:min(720px,90vw);background:#182033;color:white">
+      <h2>Review image-based model</h2><pre id="export-review-summary" style="white-space:pre-wrap;max-height:55vh;overflow:auto"></pre>
+      <button id="export-finer-step" type="button" class="hidden">Use finer step and review again</button>
+      <label><input id="export-reviewed" type="checkbox">I reviewed trace identities, missing / interpolated regions, frequency range and model assumptions</label>
+      <p><button id="export-review-confirm">Confirm this version and generate</button><button id="export-review-cancel">Back to editing</button></p>
+    </dialog>
     <dialog id="image-zoom">
       <div class="zoom-toolbar">
         <button id="zoom-out" type="button" aria-label="Zoom out">−</button><output id="zoom-level">100%</output><button id="zoom-in" type="button" aria-label="Zoom in">＋</button>
         <button id="zoom-reset" type="button">Fit</button><button id="close-image-zoom" type="button" aria-label="Close">×</button>
       </div>
-      <div id="zoom-stage" class="zoom-stage"><img id="zoom-image" alt="" draggable="false"></div>
+      <div id="zoom-stage" class="zoom-stage"><div id="zoom-content" class="zoom-content"><img id="zoom-image" alt="" draggable="false"><div id="zoom-overlay"></div></div></div>
     </dialog>
 
     <footer class="foot"><div id="status" class="status" aria-live="polite">Ready</div><div class="boundary">Sampled-passive · Broadband causality not certified</div></footer>
@@ -649,9 +681,8 @@
       }
       function traceReview(curve) {
         const regions=curve?.review_regions || [];
-        const confidence=Math.round(100*Number(curve?.visual_confidence ?? curve?.confidence ?? 0));
-        if(!regions.length)return `Visual check clear · ${confidence}% confidence`;
-        return `Review ${regions.length} highlighted area${regions.length===1 ? "" : "s"} · ${confidence}% confidence`;
+        if(!regions.length)return "No flagged intervals · image accuracy not assessed";
+        return `Review ${regions.length} highlighted area${regions.length===1 ? "" : "s"} · image accuracy not assessed`;
       }
       function curveUsage(image,curve) {
         const prefix=`图${image.index} ${curve.id} ·`;
@@ -738,7 +769,7 @@
           [/^\u5e38\u89c4\u751f\u6210\u4ec5\u652f\u6301 (.+) \u7aef\u53e3\u3002$/, "Generator port count must be one of: $1."]
         ];
         for(const [pattern,replacement] of patterns)if(pattern.test(text))return text.replace(pattern,replacement);
-        return /[\u3400-\u9fff]/.test(text) ? "Operation could not be completed. Check the selected files and settings." : text;
+        return text;
       }
       function coverageText(coverage) {
         if(!coverage || coverage.status==="needs-grid") return "Set Manual Start / Stop / Step";
@@ -757,12 +788,12 @@
         if(Number.isInteger(current)&&!options.includes(current))options.push(current);
         select.innerHTML=options.map(port => `<option value="${port}" ${port===current ? "selected" : ""} ${state.portOptions.includes(port) && (family!=="mixed-mode" || port%2===0) ? "" : "disabled"}>${port}</option>`).join("");
       }
-      function digitizationOverlay(image) {
+      function digitizationOverlay(image, fullResolution=false) {
         const result=image?.digitization;
-        if(result?.status!=="digitized" || !result.image_width || !result.image_height)return "";
+        if(!result || !result.image_width || !result.image_height || !(image.curves || []).length)return "";
         const box=result.plot_box || [];
         const rectangle=box.length===4 ? `<rect x="${box[0]}" y="${box[1]}" width="${box[2]-box[0]}" height="${box[3]-box[1]}" fill="none" stroke="#8bdef8" stroke-width="2" vector-effect="non-scaling-stroke"/>` : "";
-        const traces=(image.curves || []).map((curve,index) => `<polyline data-overlay-trace="${escapeHtml(curve.id)}" data-trace-color="${traceDisplayRgb(curve,index).join(",")}" points="${(curve.preview_points || []).map(point => `${point[0]},${point[1]}`).join(" ")}" fill="none" stroke="rgb(${traceDisplayRgb(curve,index).join(",")})" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`).join("");
+        const traces=(image.curves || []).map((curve,index) => `<polyline data-overlay-trace="${escapeHtml(curve.id)}" data-trace-color="${traceDisplayRgb(curve,index).join(",")}" points="${(fullResolution ? (curve.source_pixel_points || curve.preview_points || []) : (curve.preview_points || [])).map(point => `${point[0]},${point[1]}`).join(" ")}" fill="none" stroke="rgb(${traceDisplayRgb(curve,index).join(",")})" stroke-width="2.5" vector-effect="non-scaling-stroke"/>`).join("");
         const reviews=(image.curves || []).flatMap(curve => (curve.review_regions || []).map((region,index) => `<polyline data-overlay-review="${escapeHtml(curve.id)}" data-review-index="${index}" points="${(region.preview_points || []).map(point => `${point[0]},${point[1]}`).join(" ")}" fill="none" stroke="#ffc56d" stroke-width="6" stroke-dasharray="8 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`)).join("");
         return `<svg viewBox="0 0 ${result.image_width} ${result.image_height}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${rectangle}${traces}${reviews}</svg>`;
       }
@@ -790,6 +821,8 @@
         $("#digitize-image").disabled=!hasImage || !calibrated || state.digitizing;
       }
       function renderDatasheet(payload) {
+        // A pending review belongs to its exact data snapshot; changing inputs requires a fresh review.
+        if(pendingExport && payload!==state.datasheet){pendingExport=null;$('#export-reviewed').checked=false;$('#export-review').close();}
         if (payload.images_added) {
           const existing=state.datasheet?.images || [], known=new Set(existing.map(image => image.sha256));
           const images=[...existing,...payload.images_added.filter(image => !known.has(image.sha256))];
@@ -852,7 +885,15 @@
         const policy=network.frequency_policy; $("#frequency-policy").value=policy.mode; $("#output-f-start").value=policy.start || ""; $("#output-f-stop").value=policy.stop || ""; $("#output-f-step").value=policy.step || ""; $("#frequency-fill").checked=Boolean(policy.allow_fill);
         $("#manual-frequency").classList.toggle("hidden",policy.mode!=="manual"); $("#fill-option").classList.toggle("hidden",policy.mode==="intersection");
         $("#coverage-status").textContent=coverageText(network.coverage)+(network.parameter_family === "mixed-mode" ? " · Mixed-mode retained" : "");
+        const samplingWarnings=network.coverage?.sampling_warnings || [];
+        $('#sampling-warning').textContent=samplingWarnings.join(' ');
+        $('#sampling-warning').classList.toggle('hidden',!samplingWarnings.length);
+        const finer=network.coverage?.suggested_step_hz;
+        $('#use-finer-step').classList.toggle('hidden',!finer);
+        $('#use-finer-step').textContent=finer ? `Use ${formatFrequency(finer)} step and review again` : 'Use finer step';
         const availableTraces=images.reduce((count,item)=>count+(item.digitization?.status === "digitized" ? item.curves?.length || 0 : 0),0);
+        const imageModel=state.datasheet.networks[state.selectedNetwork];
+        if(imageModel){setValue('#image-phase',imageModel.phase);setValue('#image-delay',imageModel.delay_ns??0);setValue('#image-z0',imageModel.z0??50);}
         const reviewTraces=images.reduce((count,item)=>count+(item.digitization?.status === "digitized" ? (item.curves || []).filter(curve=>curve.review_status==="review").length : 0),0);
         $("#mapping-hint").textContent=availableTraces ? `${availableTraces} trace${availableTraces === 1 ? "" : "s"} available${reviewTraces ? ` · ${reviewTraces} need highlighted-area review` : ""} · detected labels are hints` : "";
         $("#mapping-grid").innerHTML = Object.entries(network.mappings).map(([parameter,source]) => { const options=network.mapping_options?.[parameter] || payload.source_options || []; return `<div class="mapping"><label>${escapeHtml(parameter)}</label><select data-mapping="${escapeHtml(parameter)}">${options.map(option => `<option value="${escapeHtml(option)}" ${option === source ? "selected" : ""}>${escapeHtml(displayCurveSource(option))}</option>`).join("")}</select></div>`; }).join("");
@@ -909,18 +950,127 @@
       $("#modify-input").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();loadModifyInput(event.target.value);}});
       $("#generate").addEventListener("click", async () => { if(state.running)return; setRunning(true); status.textContent="Generating"; try { const response=await callApi("run_generation",collectConfig()); if(!response.ok){setRunning(false);status.textContent=displayMessage(response.error);} } catch(_error){setRunning(false);status.textContent="Unable to start generation";} });
       $("#open-output").addEventListener("click", async () => { const response=await callApi("open_output_dir"); if(!response.ok)status.textContent=displayMessage(response.error); });
-      $("#generate-network").addEventListener("click", async () => {
+      $('#generate-network').addEventListener('click',async()=>{
         if(state.imageGenerating||!state.datasheet?.networks?.length)return;
-        const network=state.datasheet.networks[state.selectedNetwork], preflight=unassignedNetworkMessage(network);
+        const preflight=unassignedNetworkMessage(state.datasheet.networks[state.selectedNetwork]);
         if(preflight){status.textContent=preflight;return;}
-        state.imageGenerating=true;renderDatasheet(state.datasheet);status.textContent="Generating image-composed Touchstone file";
+        state.imageGenerating=true;$('#generate-network').disabled=true;
         try {
-          const response=await callApi("generate_datasheet_network",state.selectedNetwork);
-          if(!response.ok){status.textContent=displayMessage(response.error);return;}
-          const outputName=String(response.output || "").split(/[\\/]/).pop();
-          status.textContent=`Generated ${outputName} · ${response.points} points · image phase set to 0°`;
-        } catch(_error) { status.textContent="Unable to generate image-composed file"; }
-        finally { state.imageGenerating=false;renderDatasheet(state.datasheet); }
+        const index=state.selectedNetwork;
+        const model=await callApi('set_image_network_model',index,value('#image-phase'),value('#image-delay'),value('#image-z0'));
+        if(!model.ok){status.textContent=model.error;return;}
+        const review=await callApi('preview_image_export',index);
+        if(!review.ok){status.textContent=review.error;return;}
+        pendingExport={index,token:review.token};const record=review.record,grid=record.frequency_grid;
+        $('#export-finer-step').classList.toggle('hidden',!record.suggested_step_hz);
+        $('#export-review-summary').textContent=[`Output: ${grid.start_hz/1e9}–${grid.stop_hz/1e9} GHz, step ${formatFrequency(grid.step_hz)}, ${grid.points} points`,
+          `Phase: ${record.phase_assumption}; delay ${record.delay_ns} ns; impedance ${record.reference_impedance_ohm} Ω`,
+          'The image provides magnitude only. This file models explicit assumptions; it does not recover the vendor complex network.',
+          ...Object.entries(record.mappings).map(([p,source])=>`${p} ← ${displayCurveSource(source)}`),...review.warnings].join('\n');
+        $('#export-reviewed').checked=false;$('#export-review').showModal();
+        } catch(error){status.textContent=error.message||'Unable to preview output';}
+        finally {state.imageGenerating=false;$('#generate-network').disabled=false;}
+      });
+      // 编辑器在原图像素坐标下保存所有操作；显示缩放不改变输入文件。
+      let imageEditor=null;
+      let pendingExport=null;
+      function imageCalibrationForm() {
+        // Keep strings: blanks must fail validation instead of becoming numeric zero.
+        return {start:value('#image-f-start').trim(),stop:value('#image-f-stop').trim(),step:value('#image-f-step').trim(),
+          spacing:value('#image-spacing'),y_top_db:value('#image-y-max').trim(),y_bottom_db:value('#image-y-min').trim(),y_convention:value('#image-y-convention')};
+      }
+      function editAxisSummary(axis) {
+        return `${axis.start || '(unset)'}–${axis.stop || '(unset)'}, ${axis.spacing || 'linear'}, step ${axis.step || '(unset)'}; Y Top ${axis.y_top_db ?? axis.y_max_db ?? '(unset)'}, Bottom ${axis.y_bottom_db ?? axis.y_min_db ?? '(unset)'} dB (${axis.y_convention || 'magnitude'})`;
+      }
+      function refreshImageEditor() {
+        if(!imageEditor)return;
+        const {recipe,bitmap}=imageEditor, canvas=$('#edit-canvas'),ctx=canvas.getContext('2d');
+        canvas.width=bitmap.naturalWidth;canvas.height=bitmap.naturalHeight;
+        ctx.drawImage(bitmap,0,0);ctx.lineWidth=Math.max(2,canvas.width/650);
+        const box=(r,color)=>{ctx.strokeStyle=color;ctx.strokeRect(r[0],r[1],r[2]-r[0],r[3]-r[1]);};
+        if(recipe.plot_box)box(recipe.plot_box,'#f49c00');
+        (recipe.exclusions||[]).forEach(r=>{box(r,'#f00070');ctx.fillStyle='rgba(240,0,112,.18)';ctx.fillRect(r[0],r[1],r[2]-r[0],r[3]-r[1]);});
+        const image=state.datasheet.images[imageEditor.index];
+        (image.curves||[]).forEach(curve=>{ctx.strokeStyle='rgba(0,180,200,.65)';ctx.beginPath();(curve.source_pixel_points||curve.preview_points||[]).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.stroke();});
+        (recipe.traces||[]).forEach((trace,i)=>{ctx.fillStyle=i===imageEditor.selected?'#f00070':'#111';(trace.anchors||[]).forEach(([x,y])=>{ctx.beginPath();ctx.arc(x,y,Math.max(4,canvas.width/220),0,Math.PI*2);ctx.fill();});});
+        $('#edit-trace').innerHTML=recipe.traces.map((t,i)=>`<option value="${i}">${escapeHtml(t.label||t.id)}</option>`).join('');
+        $('#edit-trace').value=String(imageEditor.selected);
+        const trace=recipe.traces[imageEditor.selected];
+        $('#edit-label').value=trace?.label||'';
+        $('#edit-colour').value=trace ? '#'+trace.rgb.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('') : '#336699';
+        $('#edit-detail').textContent=`${recipe.traces.length} traces; ${recipe.exclusions.length} exclusions; ${trace?.anchors?.length||0} anchors.`;
+        $('#edit-calibration').textContent=`Current: ${editAxisSummary(imageEditor.currentAxis)}\nOn apply: ${editAxisSummary(recipe.axis)}\nApply and retrace commits these axes; Cancel keeps the current workspace.`;
+      }
+      async function openImageEditor() {
+        const index=state.selectedImage,image=state.datasheet?.images?.[index];if(!image)return;
+        try {
+        const response=await callApi('image_edit_recipe',index,imageCalibrationForm());
+        if(!response.ok){status.textContent=displayMessage(response.error);return;}
+        const bitmap=new Image();bitmap.src=image.data_url;await bitmap.decode();
+        imageEditor={index,recipe:response.recipe,currentAxis:{...state.datasheet.images[index].axis},bitmap,selected:0,pending:null,history:[]};
+        if(!imageEditor.recipe.plot_box)imageEditor.recipe.plot_box=[0,0,bitmap.naturalWidth-1,bitmap.naturalHeight-1];
+        imageEditor.recipe.exclusions??=[];imageEditor.recipe.traces??=[];
+        $('#edit-scale').value='1';$('#edit-canvas').style.width='100%';
+        $('#image-editor').showModal();refreshImageEditor();
+        } catch(error){status.textContent=error.message||'Unable to open trace editor';}
+      }
+      function beforeEdit(){imageEditor.history.push(JSON.stringify(imageEditor.recipe));if(imageEditor.history.length>30)imageEditor.history.shift();}
+      $('#edit-image').addEventListener('click',openImageEditor);
+      $('#edit-close').addEventListener('click',()=>$('#image-editor').close());
+      $('#edit-scale').addEventListener('change',()=>{$('#edit-canvas').style.width=(100*Number(value('#edit-scale')))+'%';});
+      $('#edit-mode').addEventListener('change',()=>{if(imageEditor)imageEditor.pending=null;});
+      $('#edit-trace').addEventListener('change',event=>{imageEditor.selected=Number(event.target.value);refreshImageEditor();});
+      $('#edit-label').addEventListener('change',event=>{const trace=imageEditor?.recipe.traces[imageEditor.selected];if(trace){beforeEdit();trace.label=event.target.value;refreshImageEditor();}});
+      $('#edit-colour').addEventListener('change',event=>{const trace=imageEditor?.recipe.traces[imageEditor.selected];if(trace){beforeEdit();trace.rgb=event.target.value.slice(1).match(/../g).map(v=>parseInt(v,16));refreshImageEditor();}});
+      $('#edit-add').addEventListener('click',()=>{if(imageEditor.recipe.traces.length>=8)return;beforeEdit();imageEditor.recipe.traces.push({id:'trace-'+Date.now()+'-'+Math.random().toString(16).slice(2),label:'New trace',rgb:[60,110,180],anchors:[]});imageEditor.selected=imageEditor.recipe.traces.length-1;refreshImageEditor();});
+      $('#edit-delete').addEventListener('click',()=>{if(!imageEditor.recipe.traces.length)return;beforeEdit();imageEditor.recipe.traces.splice(imageEditor.selected,1);imageEditor.selected=Math.max(0,imageEditor.selected-1);refreshImageEditor();});
+      $('#edit-clear-anchors').addEventListener('click',()=>{const trace=imageEditor.recipe.traces[imageEditor.selected];if(trace){beforeEdit();trace.anchors=[];refreshImageEditor();}});
+      $('#edit-undo').addEventListener('click',()=>{const prior=imageEditor.history.pop();if(prior){imageEditor.recipe=JSON.parse(prior);imageEditor.selected=Math.min(imageEditor.selected,Math.max(0,imageEditor.recipe.traces.length-1));imageEditor.pending=null;refreshImageEditor();}});
+      $('#edit-canvas').addEventListener('click',event=>{
+        const canvas=event.currentTarget,rect=canvas.getBoundingClientRect();
+        const x=Math.max(0,Math.min(canvas.width-1,Math.round((event.clientX-rect.left)*canvas.width/rect.width))), y=Math.max(0,Math.min(canvas.height-1,Math.round((event.clientY-rect.top)*canvas.height/rect.height)));
+        const mode=value('#edit-mode'),trace=imageEditor.recipe.traces[imageEditor.selected];
+        if(mode==='box'||mode==='exclude'){
+          if(!imageEditor.pending){imageEditor.pending=[x,y];$('#edit-detail').textContent='Click the opposite corner';return;}
+          const [a,b]=imageEditor.pending;imageEditor.pending=null;const box=[Math.min(x,a),Math.min(y,b),Math.max(x,a),Math.max(y,b)];
+          if(box[0]===box[2]||box[1]===box[3])return;beforeEdit();if(mode==='box')imageEditor.recipe.plot_box=box;else imageEditor.recipe.exclusions.push(box);
+        } else if(mode==='colour'&&trace){
+          // 从独立原图画布取色，避免采到编辑器覆盖线的颜色。
+          const raw=document.createElement('canvas');raw.width=canvas.width;raw.height=canvas.height;const ctx=raw.getContext('2d');ctx.drawImage(imageEditor.bitmap,0,0);beforeEdit();trace.rgb=[...ctx.getImageData(x,y,1,1).data].slice(0,3);
+        } else if(mode==='anchor'&&trace){beforeEdit();trace.anchors=(trace.anchors||[]).filter(point=>point[0]!==x);trace.anchors.push([x,y]);trace.anchors.sort((a,b)=>a[0]-b[0]);}
+        refreshImageEditor();
+      });
+      $('#edit-apply').addEventListener('click',async()=>{
+        const button=$('#edit-apply');button.disabled=true;$('#edit-detail').textContent='Retracing source pixels…';
+        try {
+          const response=await callApi('apply_image_recipe',imageEditor.index,imageEditor.recipe);
+          if(!response.ok){$('#edit-detail').textContent=response.error;return;}
+          renderDatasheet(response);$('#image-editor').close();status.textContent='Correction applied. Review overlays and remap traces; previous export confirmation is invalid.';
+        } catch(error){$('#edit-detail').textContent=error.message||'Trace correction failed';}
+        finally {button.disabled=false;}
+      });
+      $('#edit-load').addEventListener('change',async event=>{
+        const file=event.target.files[0];if(!file)return;
+        try {if(file.size>250000)throw Error('Recipe exceeds size limit');const recipe=JSON.parse(await file.text());if(recipe.source_sha256!==imageEditor.recipe.source_sha256)throw Error('Recipe does not match this source image');if(recipe.schema_version!==1||!Array.isArray(recipe.traces)||!Array.isArray(recipe.exclusions)||!Array.isArray(recipe.plot_box)||!recipe.axis||recipe.traces.some(t=>!Array.isArray(t.rgb)||t.rgb.length!==3||!Array.isArray(t.anchors)))throw Error('Invalid recipe format');
+          const checked=await callApi('image_edit_recipe',imageEditor.index,recipe.axis);if(!checked.ok)throw Error(checked.error);
+          beforeEdit();imageEditor.recipe={...recipe,axis:checked.recipe.axis};imageEditor.selected=0;refreshImageEditor();
+        }catch(error){$('#edit-detail').textContent=error.message;}
+        event.target.value='';
+      });
+      $('#undo-image-edit').addEventListener('click',async()=>{const response=await callApi('undo_image_recipe',state.selectedImage);if(response.ok)renderDatasheet(response);status.textContent=response.ok?'Correction undone. Remap and review before exporting.':response.error;});
+      [['#save-image-recipe','recipe'],['#export-image-csv','csv']].forEach(([selector,kind])=>$(selector).addEventListener('click',async()=>{const response=await callApi('export_image_asset',state.selectedImage,kind);status.textContent=response.ok?`Saved ${response.output}`:response.error;}));
+      $('#export-review-cancel').addEventListener('click',()=>$('#export-review').close());
+      $('#export-review-confirm').addEventListener('click',async()=>{
+        if(!pendingExport||!$('#export-reviewed').checked||state.imageGenerating)return;
+        state.imageGenerating=true;$('#export-review-confirm').disabled=true;
+        try {
+        const response=await callApi('confirm_image_export',pendingExport.index,pendingExport.token);
+        if(!response.ok){$('#export-review-summary').textContent=response.error;return;}
+        const generated=await callApi('generate_datasheet_network',pendingExport.index);
+        if(!generated.ok){$('#export-review-summary').textContent=generated.error;return;}
+        $('#export-review').close();pendingExport=null;status.textContent=`Generated ${generated.output} · ${generated.points} points · ${generated.phase_assumption}`;
+        } catch(error){$('#export-review-summary').textContent=error.message||'Export failed';}
+        finally {state.imageGenerating=false;$('#export-review-confirm').disabled=false;}
       });
       $("#open-image-output").addEventListener("click", async () => { const response=await callApi("open_datasheet_output_dir"); if(!response.ok)status.textContent=displayMessage(response.error); });
       $("#add-images").addEventListener("click", async () => {
@@ -967,8 +1117,13 @@
       async function updateImageFrequency() {
         const start=value("#image-f-start").trim(), stop=value("#image-f-stop").trim(), step=value("#image-f-step").trim();
         if(!state.datasheet?.images?.length || !start || !stop || !step) return;
-        const response=await callApi("set_image_frequency",state.selectedImage,start,stop,step,value("#image-spacing"));
-        if(response.ok){renderDatasheet(response);status.textContent="Frequency updated";}else status.textContent=displayMessage(response.error);
+        const index=state.selectedImage,response=await callApi("set_image_frequency",index,start,stop,step,value("#image-spacing"));
+        if(response.ok){
+          // An X-axis change must not discard Y values typed since the last Digitize.
+          const verticalDraft=imageCalibrationForm();renderDatasheet(response);
+          if(index===state.selectedImage){setValue('#image-y-max',verticalDraft.y_top_db);setValue('#image-y-min',verticalDraft.y_bottom_db);setValue('#image-y-convention',verticalDraft.y_convention);}
+          status.textContent="Frequency updated";
+        }else status.textContent=displayMessage(response.error);
       }
       ["#image-f-start","#image-f-stop","#image-f-step","#image-spacing"].forEach(id => $(id).addEventListener("change",updateImageFrequency));
       ["#image-f-start","#image-f-stop","#image-f-step","#image-y-max","#image-y-min"].forEach(id => $(id).addEventListener("input",refreshDigitizeAvailability));
@@ -991,7 +1146,7 @@
       const zoomDialog=$("#image-zoom"), zoomStage=$("#zoom-stage"), zoomImage=$("#zoom-image");
       function applyZoom(scale) {
         state.zoom.scale=Math.min(8,Math.max(state.zoom.fit,scale));
-        zoomImage.style.width=`${zoomImage.naturalWidth*state.zoom.scale}px`; zoomImage.style.height=`${zoomImage.naturalHeight*state.zoom.scale}px`;
+        $('#zoom-content').style.width=`${zoomImage.naturalWidth*state.zoom.scale}px`; $('#zoom-content').style.height=`${zoomImage.naturalHeight*state.zoom.scale}px`;
         $("#zoom-level").value=`${Math.round(state.zoom.scale*100)}%`;
       }
       function fitZoom() {
@@ -1001,7 +1156,8 @@
       }
       function showImageZoom() {
         const image=state.datasheet?.images?.[state.selectedImage]; if(!image)return;
-        zoomImage.onload=fitZoom; zoomImage.src=image.data_url; zoomImage.alt=image.name; zoomDialog.showModal();
+        zoomImage.onload=fitZoom; zoomImage.src=image.data_url; zoomImage.alt=image.name;
+        $('#zoom-overlay').innerHTML=digitizationOverlay(image,true);zoomDialog.showModal();highlightTrace(state.selectedTrace);
         if(zoomImage.complete)requestAnimationFrame(fitZoom);
       }
       $("#image-preview").addEventListener("click",showImageZoom);
@@ -1025,6 +1181,18 @@
         const response=await callApi("set_network_frequency_policy",state.selectedNetwork,mode,start,stop,step,$("#frequency-fill").checked);
         if(response.ok)renderDatasheet(response);else {renderDatasheet(state.datasheet);status.textContent=displayMessage(response.error);}
       }
+      async function useFinerImageStep() {
+        const coverage=state.datasheet?.networks?.[state.selectedNetwork]?.coverage;
+        if(!coverage?.suggested_step_hz)return;
+        // Only this explicit click changes the grid. Keep the chosen range and fill policy.
+        const network=state.datasheet.networks[state.selectedNetwork];
+        const response=await callApi('set_network_frequency_policy',state.selectedNetwork,'manual',
+          `${coverage.start_hz}Hz`,`${coverage.stop_hz}Hz`,`${coverage.suggested_step_hz}Hz`,network.frequency_policy.allow_fill);
+        if(response.ok){renderDatasheet(response);status.textContent='Finer uniform step applied. Review sampling and generate a new preview.';}
+        else status.textContent=displayMessage(response.error);
+      }
+      $('#use-finer-step').addEventListener('click',useFinerImageStep);
+      $('#export-finer-step').addEventListener('click',useFinerImageStep);
       $("#frequency-policy").addEventListener("change",updateFrequencyPolicy); $("#frequency-fill").addEventListener("change",updateFrequencyPolicy);
       ["#output-f-start","#output-f-stop","#output-f-step"].forEach(id => $(id).addEventListener("change",updateFrequencyPolicy));
       window.addEventListener("pywebviewready", async () => { try { applyDefaults(await callApi("get_defaults")); window.insertionLossReady=true; } catch(_error){status.textContent="Unable to load defaults";} });

@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .trace_recovery_policy import VISUAL_REVIEW_ENABLED
+from .raster_path_geometry import colour_evidence_mask, raster_turns
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class CurveReviewRegion:
 
 
 class ReviewableCurve(Protocol):
+    rgb: tuple[int, int, int]
     pixel_points: NDArray[np.float64]
     confidence: float
     observed_samples: int
@@ -156,17 +158,38 @@ def _raster_gap_regions(curve: ReviewableCurve) -> tuple[CurveReviewRegion, ...]
 def attach_visual_review(
     curves: Sequence[CurveT],
     plot_box: tuple[int, int, int, int],
+    *,
+    rgb: NDArray[np.uint8] | None = None,
 ) -> tuple[CurveT, ...]:
-    """Attach local evidence and topology review results to every trace."""
+    """Attach geometric and, when supplied, original-pixel evidence review.
+
+    Confidence is an evidence/coverage indicator, never the probability that
+    amplitudes match the original instrument data. One unresolved local turn
+    reduces the score even when nearly every image column has an observation.
+    """
 
     if not VISUAL_REVIEW_ENABLED:
         return tuple(curves)
     reviewed: list[CurveT] = []
     for curve in curves:
+        # 图框首尾没有路径时也显示缺失区，避免只有内部缺口被检查。
+        endpoint_regions = []
+        # Codex说明(自动生成)： 检查条件 len(curve.pixel_points)，根据结果选择后续执行路径。
+        if len(curve.pixel_points):
+            # Codex说明(自动生成)： 遍历 ((plot_box[0], curve.pixel_points[0, 0] - 1), (curve.pi... 中的 (start, stop)，逐项执行循环体逻辑。
+            for start, stop in ((plot_box[0], curve.pixel_points[0, 0]-1),
+                                (curve.pixel_points[-1, 0]+1, plot_box[2])):
+                # Codex说明(自动生成)： 检查条件 stop >= start，根据结果选择后续执行路径。
+                if stop >= start:
+                    # Codex说明(自动生成)： 调用 endpoint_regions.append 更新列表或集合，把当前步骤产生的数据加入结果。
+                    endpoint_regions.append(CurveReviewRegion(float(start), float(stop),
+                        "missing_endpoint", "high", int(stop-start+1)))
         regions = (
+            *endpoint_regions,
             *_provenance_regions(curve),
             *_raster_gap_regions(curve),
             *_upward_excursion_regions(curve, plot_box),
+            *(_source_pixel_regions(curve, plot_box, rgb) if rgb is not None else ()),
         )
         sample_count = max(curve.pixel_points.shape[0], 1)
         risk = (
@@ -175,9 +198,13 @@ def attach_visual_review(
             + sum(
                 region.samples
                 for region in regions
-                if region.reason in {"raster_gap", "upward_excursion"}
+                if region.reason in {"raster_gap", "upward_excursion", "missing_endpoint", "manual_anchor", "manual_guided", "source_pixel_mismatch", "raster_turn", "unresolved_raster_turn", "wide_raster_section"}
             )
         ) / sample_count
+        if any(region.reason in {"source_pixel_mismatch", "unresolved_raster_turn"} for region in regions):
+            risk = max(risk, 0.15)
+        elif any(region.reason in {"raster_turn", "wide_raster_section"} for region in regions):
+            risk = max(risk, 0.05)
         reviewed.append(
             replace(
                 curve,
@@ -189,3 +216,49 @@ def attach_visual_review(
             )
         )
     return tuple(reviewed)
+
+
+def _source_pixel_regions(curve, plot_box, rgb):
+    """Compare the recovered path with local matching original-image pixels.
+
+    Connected turn evidence catches a clipped tip even when that tip occupies
+    only one output sample. Wide vertical sections expose unresolved raster
+    geometry; missing colour support exposes smoothing through blank pixels.
+    A two-pixel neighbourhood permits native raster quantisation and antialias
+    edges, and is not a claim of physical measurement accuracy.
+    """
+
+    left, top, right, bottom = plot_box
+    mask = colour_evidence_mask(rgb[top:bottom + 1, left:right + 1], curve.rgb)
+    points = curve.pixel_points - (left, top)
+    regions = []
+    for turn in raster_turns(mask, points):
+        mismatch = abs(points[turn.sample_index, 1] - turn.tip_y) > turn.linewidth + 1
+        regions.append(CurveReviewRegion(turn.start_x + left, turn.end_x + left,
+            "unresolved_raster_turn" if turn.ambiguous or mismatch else "raster_turn",
+            "high" if turn.ambiguous or mismatch else "medium",
+            max(1, int(round(turn.end_x - turn.start_x + 1)))))
+    unsupported = np.zeros(len(points), dtype=bool)
+    broad = np.zeros(len(points), dtype=bool)
+    height, width = mask.shape
+    for index, (x, y) in enumerate(points):
+        column, row = int(round(x)), int(round(y))
+        if not (0 <= column < width and 0 <= row < height):
+            unsupported[index] = True
+            continue
+        unsupported[index] = not np.any(mask[max(0, row - 2):min(height, row + 3), max(0, column - 2):min(width, column + 3)])
+        if mask[row, column]:
+            low = high = row
+            while low > 0 and mask[low - 1, column]:
+                low -= 1
+            while high + 1 < height and mask[high + 1, column]:
+                high += 1
+            broad[index] = high - low + 1 > max(10, height * 0.035)
+    for flags, reason, severity in ((unsupported, "source_pixel_mismatch", "high"), (broad, "wide_raster_section", "medium")):
+        indexes = np.flatnonzero(flags)
+        if not indexes.size:
+            continue
+        splits = np.flatnonzero((np.diff(indexes) > 1) | (np.diff(points[indexes, 0]) > 1.5)) + 1
+        for run in np.split(indexes, splits):
+            regions.append(CurveReviewRegion(float(points[run[0], 0] + left), float(points[run[-1], 0] + left), reason, severity, len(run)))
+    return tuple(regions)

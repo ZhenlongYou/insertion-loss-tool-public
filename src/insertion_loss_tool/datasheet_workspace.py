@@ -24,6 +24,11 @@ from .datasheet import (
 )
 from .datasheet_digitizer import DigitizedCurve, analyze_plot_image, digitize_plot_image
 from .image_frequency import parse_image_frequency
+from .image_sampling import extrema_preview, finer_uniform_step, sampling_check, sampling_message
+# Codex说明(自动生成)： 从 image_export_review 导入 ImageExportReview，提供本文件后续流程需要的库能力。
+from .image_export_review import ImageExportReview
+# Codex说明(自动生成)： 从 image_workspace_editing 导入 ImageWorkspaceEditing，提供本文件后续流程需要的库能力。
+from .image_workspace_editing import ImageWorkspaceEditing
 from .models import COMMON_PORT_COUNTS, parse_frequency
 from .touchstone import TouchstoneData
 from .trace_recovery_policy import MATCHED_FALLBACK_DB
@@ -71,7 +76,6 @@ def _curve_review_payload(curve: DigitizedCurve) -> dict[str, object]:
                     np.interp(x_values, points[:, 0], points[:, 1]),
                 )
             )
-        stride = max(1, int(np.ceil(selected.shape[0] / 120)))
         regions.append(
             {
                 "start_x": round(float(region.start_x), 2),
@@ -79,7 +83,7 @@ def _curve_review_payload(curve: DigitizedCurve) -> dict[str, object]:
                 "reason": region.reason,
                 "severity": region.severity,
                 "samples": int(region.samples),
-                "preview_points": np.round(selected[::stride], 2).tolist(),
+                "preview_points": extrema_preview(selected, 120).tolist(),
             }
         )
     return {
@@ -152,7 +156,8 @@ def _new_network(index: int, port_count: int) -> dict[str, object]:
     }
 
 
-class DatasheetWorkspace:
+# Codex说明(自动生成)： 定义 DatasheetWorkspace 类，把相关数据结构、校验规则或操作方法组织在一起。
+class DatasheetWorkspace(ImageExportReview, ImageWorkspaceEditing):
     """Own images, mappings, and frequency policies independently of the app shell."""
 
     def __init__(self) -> None:
@@ -274,6 +279,8 @@ class DatasheetWorkspace:
                 self._total_image_bytes -= int(removed["byte_count"])
                 self._image_hashes.discard(str(removed["sha256"]))
                 del self._images[image_index]
+                # 删除图片时同步释放最多十步修线历史。
+                getattr(self, "_image_edit_undo", {}).pop(self._image_payloads[image_index]["sha256"], None)
                 del self._image_payloads[image_index]
                 del self._axis_revisions[image_index]
                 del self._digitized_curve_data[image_index]
@@ -384,9 +391,6 @@ class DatasheetWorkspace:
                     for curve_index, curve in enumerate(preview_result.curves):
                         curve_id = chr(ord("A") + curve_index)
                         color = _DISPLAY_COLORS.get(curve.color, curve.color)
-                        stride = max(
-                            1, int(np.ceil(curve.pixel_points.shape[0] / 800))
-                        )
                         preview_curves.append(
                             {
                                 "id": curve_id,
@@ -399,7 +403,7 @@ class DatasheetWorkspace:
                                 "covered_samples": 0,
                                 "unresolved_samples": 0,
                                 "observed_samples": int(
-                                    curve.observed_samples or curve.frequency_hz.size
+                                    curve.observed_samples if curve.sample_provenance else curve.frequency_hz.size
                                 ),
                                 "shared_overlap_samples": int(
                                     curve.shared_overlap_samples
@@ -410,9 +414,8 @@ class DatasheetWorkspace:
                                 "confidence": round(float(curve.confidence), 3),
                                 **_curve_review_payload(curve),
                                 "rgb": list(curve.rgb),
-                                "preview_points": np.round(
-                                    curve.pixel_points[::stride], 2
-                                ).tolist(),
+                                "source_pixel_points": curve.pixel_points.tolist(),
+                                "preview_points": extrema_preview(curve.pixel_points).tolist(),
                             }
                         )
                 except ValueError as exc:
@@ -454,6 +457,10 @@ class DatasheetWorkspace:
                     image["curves"] = preview_curves
                     image["candidates"] = len(preview_curves)
                 image["axis"] = axis
+                # Codex说明(自动生成)： 检查条件 image.get('edit_recipe')，根据结果选择后续执行路径。
+                if image.get("edit_recipe"):
+                    # 保存当前生效的校准，避免修线方案恢复到旧频率或幅度。
+                    image["edit_recipe"]["axis"] = copy.deepcopy(axis)
                 image["digitization"] = {
                     "status": "ready" if ready else "review",
                     "message": (
@@ -555,8 +562,14 @@ class DatasheetWorkspace:
                 points = int(np.floor((stop_hz - start_hz) / step_hz)) + 1
                 if points < 2 or points > MAX_FREQUENCY_POINTS:
                     return {"ok": False, "error": "图片频点数量必须是 2–200000。"}
+                # X 轴修改不改变独立 Y 轴校准；编辑器随后须以这些当前值为准。
+                prior_axis = self._image_payloads[image_index]["axis"]
+                vertical_axis = {name: prior_axis[name] for name in (
+                    "y_convention", "y_top_db", "y_bottom_db", "y_min_db", "y_max_db"
+                ) if name in prior_axis}
                 self._axis_revisions[image_index] += 1
                 self._image_payloads[image_index]["axis"] = {
+                    **vertical_axis,
                     "status": "ready",
                     "source": "manual",
                     "start": str(start).strip(),
@@ -625,6 +638,8 @@ class DatasheetWorkspace:
                 parameter_analysis_complete = bool(
                     prior_digitization.get("parameter_analysis_complete")
                 )
+                # Codex说明(自动生成)： 计算并保存 recipe，供后续语句继续读取或更新。
+                recipe = copy.deepcopy(self._image_payloads[image_index].get("edit_recipe", {}))
                 axis_revision = self._axis_revisions[image_index]
                 self._active_digitizations += 1
                 active = True
@@ -639,6 +654,7 @@ class DatasheetWorkspace:
                 run_ocr=not parameter_analysis_complete,
                 spacing=str(axis.get("spacing", "linear")),
                 parameter_hint=prior_parameter or None,
+                **({"plot_box_override": recipe.get("plot_box"), "trace_specs": recipe.get("traces"), "exclusion_boxes": recipe.get("exclusions", [])} if recipe else {}),
             )
             detected_parameter = result.detected_parameter or prior_parameter or None
             curves: list[dict[str, object]] = []
@@ -656,8 +672,7 @@ class DatasheetWorkspace:
                 curve_id = chr(ord("A") + curve_index)
                 color = _DISPLAY_COLORS.get(curve.color, curve.color)
                 parameter = detected_parameter or "自动"
-                stride = max(1, int(np.ceil(curve.pixel_points.shape[0] / 800)))
-                preview = curve.pixel_points[::stride]
+                preview = extrema_preview(curve.pixel_points)
                 covered_samples = int(
                     np.count_nonzero(
                         (display_frequency_hz >= curve.frequency_hz[0])
@@ -671,6 +686,10 @@ class DatasheetWorkspace:
                         "color": color,
                         "parameter": parameter,
                         "calibrated": True,
+                        "identity": recipe['traces'][curve_index]['id'] if recipe else digest[:12]+'-'+curve_id,
+                        "label": recipe['traces'][curve_index].get('label', '') if recipe else '',
+                        "source_pixel_points": curve.pixel_points.tolist(),
+                        "sample_provenance": list(curve.sample_provenance) or ['observed']*len(curve.frequency_hz),
                         # Every destination channel uses this calibrated grid.
                         # Keep raw evidence separate so interpolation is never
                         # presented as pixels that were actually observed.
@@ -679,7 +698,7 @@ class DatasheetWorkspace:
                         "covered_samples": covered_samples,
                         "unresolved_samples": grid_points - covered_samples,
                         "observed_samples": int(
-                            curve.observed_samples or curve.frequency_hz.size
+                            curve.observed_samples if curve.sample_provenance else curve.frequency_hz.size
                         ),
                         "shared_overlap_samples": int(
                             curve.shared_overlap_samples
@@ -688,7 +707,7 @@ class DatasheetWorkspace:
                         "confidence": round(float(curve.confidence), 3),
                         **_curve_review_payload(curve),
                         "rgb": list(curve.rgb),
-                        "preview_points": np.round(preview, 2).tolist(),
+                        "preview_points": preview.tolist(),
                     }
                 )
                 curve_data[curve_id] = (curve.frequency_hz.copy(), curve.magnitude_db.copy())
@@ -712,6 +731,10 @@ class DatasheetWorkspace:
                 image["curves"] = curves
                 image["candidates"] = len(curves)
                 image["axis"] = axis
+                # Codex说明(自动生成)： 检查条件 image.get('edit_recipe')，根据结果选择后续执行路径。
+                if image.get("edit_recipe"):
+                    # 保存当前生效的校准，避免修线方案恢复到旧频率或幅度。
+                    image["edit_recipe"]["axis"] = copy.deepcopy(axis)
                 image["digitization"] = {
                     "status": "digitized",
                     "message": f"{len(curves)} traces available · magnitude only",
@@ -939,7 +962,9 @@ class DatasheetWorkspace:
                     "allow_fill": allow_fill,
                 }
                 if value == "manual":
-                    start_hz = parse_frequency(str(start))
+                    # DC 起始与图片轴一致；非零裸数字仍沿用原手动网格的 Hz 合同。
+                    start_hz = (0.0 if parse_image_frequency(start, allow_zero=True) == 0
+                                else parse_frequency(str(start)))
                     stop_hz = parse_frequency(str(stop))
                     step_hz = parse_frequency(str(step))
                     if stop_hz <= start_hz:
@@ -1109,6 +1134,8 @@ class DatasheetWorkspace:
             "port_count": int(network["port_count"]),
             "parameter_family": str(network["parameter_family"]),
             "phase": str(network["phase"]),
+            "delay_ns": network.get("delay_ns",0),
+            "z0": network.get("z0",50),
             "reciprocal": bool(network["reciprocal"]),
             "frequency_policy": dict(network["frequency_policy"]),
             "coverage": self._network_coverage(network),
@@ -1341,6 +1368,9 @@ class DatasheetWorkspace:
             for source in network["mappings"].values()
             if str(source) in resources and not matches_grid(resources[str(source)])
         )
+        checks = self._sampling_checks(grid.frequency_hz, resources)
+        warnings = [message for check in checks
+                    if (message := sampling_message(check["source"], check))]
         return {
             "status": "ready" if not unresolved_channels else "unresolved",
             "source_images": source_images,
@@ -1355,6 +1385,12 @@ class DatasheetWorkspace:
             "default_channels": len(network["mappings"]) - image_channels - unresolved_channels,
             "unresolved_channels": unresolved_channels,
             "resampled_channels": resampled_channels,
+            "sampling_checks": checks,
+            "sampling_warnings": warnings,
+            "suggested_step_hz": finer_uniform_step(
+                grid.frequency_hz, [curve.frequency_hz for curve in resources.values()],
+                MAX_FREQUENCY_POINTS,
+            ) if warnings else None,
             "source_sample_counts": {
                 source: int(curve.frequency_hz.size) for source, curve in resources.items()
             },
@@ -1362,6 +1398,21 @@ class DatasheetWorkspace:
                 str(parameter): grid.points for parameter in network["mappings"]
             },
         }
+
+    def _sampling_checks(self, output_hz, resources):
+        """以完整提取数据检查当前网格；图上每纵向像素只作为就近提示尺度。"""
+        checks = []
+        for source, curve in resources.items():
+            image_index, _ = self._source_reference(source)
+            image = self._image_payloads[image_index]
+            axis = image["axis"]
+            box = image.get("digitization", {}).get("plot_box", [])
+            resolution = None
+            if len(box) == 4 and box[3] > box[1] and axis.get("y_max_db") is not None and axis.get("y_min_db") is not None:
+                resolution = abs(float(axis["y_max_db"]) - float(axis["y_min_db"])) / (box[3] - box[1])
+            checks.append({"source": source, **sampling_check(
+                curve.frequency_hz, curve.magnitude_db, output_hz, resolution)})
+        return checks
 
     def _image_metadata_payload(self, index: int) -> dict[str, object]:
         image = self._image_payloads[index]

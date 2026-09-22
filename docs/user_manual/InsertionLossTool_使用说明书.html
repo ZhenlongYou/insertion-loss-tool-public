@@ -240,9 +240,9 @@
         <h1>Insertion Loss Tool<br>使用说明书</h1>
         <p>面向实际操作人员，逐项说明两个主页签、四种生成/修改模式、每个按钮和输入项、输出文件、无源拒绝原因以及 Windows 单文件版运行要求。界面英文名称与当前程序保持一致。</p>
         <div class="meta">
-          <span class="chip">工具版本：0.5.0</span>
-          <span class="chip">功能快照：独立 public 仓库 main</span>
-          <span class="chip">文档日期：2026-09-02</span>
+          <span class="chip">工具版本：0.6.0</span>
+          <span class="chip">识图功能：0.6.0 源码版</span>
+          <span class="chip">文档日期：2026-09-22</span>
           <span class="chip">平台：Windows / macOS</span>
           <span class="chip">输出：Touchstone .sNp</span>
         </div>
@@ -259,7 +259,7 @@
         </div>
         <div class="callout warning"><strong>结果不是合规证书。</strong>程序在每个输出采样频点检查完整 S 矩阵的最大奇异值，保证“采样点无源”。这不证明采样点之间的宽带因果性、稳定性、物理可实现性，也不证明它代表某一条真实线缆、连接器或封装。</div>
         <p>图片页只能恢复图中可见的幅度轨迹，无法从一张幅度图恢复原始相位、参考阻抗变换或未画出的矩阵元素。该页输出明确采用零度相位近似。</p>
-        <p class="source-note">实现依据：<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/validation.py#L1-L94">采样点无源诊断</a>；<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/datasheet_workspace.py#L1041-L1085">图片网络的幅度、相位与导出合同</a>。</p>
+        <p class="source-note">实现依据：<a href="../../src/insertion_loss_tool/validation.py">采样点无源诊断</a>；<a href="../../src/insertion_loss_tool/datasheet_workspace.py">图片网络的幅度、相位与导出合同</a>。</p>
       </section>
 
       <section class="doc-section" id="quick-start" data-title="快速开始">
@@ -314,7 +314,7 @@
           </table>
         </div>
         <p>窗口底部左侧是实时状态；右侧固定显示 <code>Sampled-passive · Broadband causality not certified</code>，提醒结果边界。</p>
-        <p class="source-note">界面依据：<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/webui/index.html#L172-L329">当前两个主页签及全部可见控件</a>。</p>
+        <p class="source-note">界面依据：<a href="../../src/insertion_loss_tool/webui/index.html">当前两个主页签及全部可见控件</a>。</p>
       </section>
 
       <section class="doc-section" id="generator-common" data-title="生成页公共参数">
@@ -398,7 +398,7 @@
         <div class="callout"><strong>当前 Modify 的无源处理：</strong>先验证源文件完整 S 矩阵；再用形状保持曲线修改所选路径。非目标频点若因平滑产生无源超限，程序会沿“原矩阵→候选矩阵”收缩修改量；目标频点保持精确。若目标本身不可能满足完整矩阵无源条件，程序明确拒绝，而不是悄悄改变目标。</div>
         <div class="callout danger"><strong>看到 passive 拒绝时先读前缀。</strong><code>Input S-parameter matrix is not passive</code> 表示源文件本身已经不满足采样点无源，换目标没有用；<code>Requested target cannot satisfy sampled passivity</code> 表示请求的目标与该频点其他矩阵元素组合后不可行，应提高该路径插损或调整相关通道；<code>Modified…not passive</code> 表示最终完整矩阵门禁未通过，文件不会写出。</div>
         <p>Modify 成功会同时生成修改后的 <code>.sNp</code> 和 <code>.sNp.report.txt</code>。报告列出每条路径在每个目标频点的请求插损、修改前插损、最终达到插损和相位变化。</p>
-        <p class="source-note">生成与 Modify 依据：<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/webview_gui.py#L919-L1543">默认值、按钮后端与输出规则</a>；<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/models.py#L1102-L1277">Modify 主流程</a>；<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/modify_passivity.py#L10-L82">非目标频点无源收缩</a>。</p>
+        <p class="source-note">生成与 Modify 依据：<a href="../../src/insertion_loss_tool/webview_gui.py">默认值、按钮后端与输出规则</a>；<a href="../../src/insertion_loss_tool/models.py">Modify 主流程</a>；<a href="../../src/insertion_loss_tool/modify_passivity.py">非目标频点无源收缩</a>。</p>
       </section>
 
       <section class="doc-section" id="plot-tools" data-title="曲线区与图表按钮">
@@ -413,13 +413,13 @@
           <tr><td><span class="button-swatch icon">⌂</span> 恢复范围</td><td>所有子图恢复当前数据的推荐显示范围。</td><td>不会改变数据或重新生成。</td></tr>
         </tbody></table></div>
         <p>每个 Sij 子图保留自己的查看范围。切换 Magnitude / Phase 时会进入对应类型的查看状态；重新生成后查看范围会按新数据重置。</p>
-        <p class="source-note">交互依据：<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/webui/index.html#L458-L608">曲线绘制、滚轮、平移、框选和复位逻辑</a>。</p>
+        <p class="source-note">交互依据：<a href="../../src/insertion_loss_tool/webui/index.html">曲线绘制、滚轮、平移、框选和复位逻辑</a>。</p>
       </section>
 
       <section class="doc-section" id="image-tab" data-title="图片转 S 参数页">
         <div class="section-kicker">6 · IMAGE TO S-PARAMETER</div>
         <h2>Image to S-Parameter 页签</h2>
-        <p class="lead">本页的流程是“导入图片 → 核对坐标 → 提取 Trace → 配置输出网络 → 映射每个参数 → 生成文件”。任何未分配通道都会在调用后端前被明确列出。</p>
+        <p class="lead">本页的流程是“导入图片 → 核对坐标 → 提取 Trace → 配置输出网络 → 映射每个参数 → 检查采样与模型假设 → 复核并生成文件”。任何未分配通道都会在调用后端前被明确列出。</p>
 
         <h3 id="image-input">6.1 图片列表、预览、校准与 Digitize</h3>
         <div class="table-wrap"><table><thead><tr><th>控件</th><th>功能</th><th>可用条件 / 限制</th></tr></thead><tbody>
@@ -431,7 +431,9 @@
           <tr><td>X Scale</td><td>选择图片横轴为 Linear 或 Log。</td><td>Log 必须从正频率开始。Step 仍用于建立输出采样数量。</td></tr>
           <tr><td>Y Max / Y Min (dB)</td><td>校准图片纵轴的顶部和底部幅度。</td><td>Y Max 必须大于 Y Min。</td></tr>
           <tr><td><span class="button-swatch primary">Digitize</span> / Re-digitize</td><td>按当前坐标重新定位连续彩色轨迹并提取幅度样点；完成后显示 Trace 1、Trace 2……</td><td>只有 Start、Stop、Step、Y Max、Y Min 全部填写后可用。重新识别会清除旧曲线映射，避免使用过期数据。</td></tr>
-          <tr><td>Trace 行</td><td>点击可持续高亮这条曲线；鼠标悬停可临时高亮。橙色虚线标出需要对照原图的局部区段，并显示视觉置信度。</td><td>橙色区段可能来自插值、共享像素、原图缺口或短促的异常上跳；它表示“请人工确认”，不等于程序已经证明曲线错误。这里仅显示曲线身份、颜色、样点质量和“已被哪个输出使用”；所有 S 参数映射统一在右侧网络面板选择，避免左右两套下拉框互相覆盖。</td></tr>
+          <tr><td>Trace 行</td><td>点击可持续高亮这条曲线；鼠标悬停可临时高亮。橙色虚线标出需要对照原图的局部区段，并说明像素证据的复核状态。该提示不是经过标定的识别准确率。</td><td>橙色区段可能来自插值、共享像素、原图缺口、尖锐转折、路径与源像素不符或短促的异常上跳；它表示“请人工确认”，不等于程序已经证明曲线错误。这里仅显示曲线身份、颜色、样点质量和“已被哪个输出使用”；所有 S 参数映射统一在右侧网络面板选择，避免左右两套下拉框互相覆盖。</td></tr>
+          <tr><td>Edit traces</td><td>框选绘图区、排除图例、从原图取色、添加或删除目标线，并用锚点引导局部追踪。编辑器支持 200% / 300% 放大和撤销。</td><td>先核对主界面的坐标轴。Apply and retrace 后重新检查曲线并映射；失败会保留原数据。</td></tr>
+          <tr><td>Undo correction / Save recipe / Magnitude CSV</td><td>撤销已应用修正；保存与源图哈希绑定的 JSON 方案；导出含来源信息的幅度样点。</td><td>修正或撤销会使旧映射确认失效；恢复方案必须匹配同一图片。</td></tr>
         </tbody></table></div>
         <div class="callout warning"><strong>OCR 是辅助，不是裁决。</strong>Tesseract 未安装或图片文字不清时，曲线路径仍可能可提取，但频率、Y 轴和参数标签需要人工填写或确认。程序不会用与图片无关的默认值悄悄补全“识别成功”。</div>
         <div class="callout warning"><strong>局部风险提示也是辅助判据。</strong>程序会在整条曲线统计之外检查短区段，并把可疑位置直接叠加在原图上；没有橙色标记只代表当前规则未发现风险，不代表图片一定无歧义。导出前仍应检查关键频段和 Trace 身份。</div>
@@ -448,10 +450,11 @@
           <tr><td>Frequency Range: Manual</td><td>用 Start、Stop、Step 明确规定一个均匀输出网格。</td><td>Step 必须精确整除 Start–Stop 范围，点数不超过 200000。</td></tr>
           <tr><td>Frequency Range: Full Range</td><td>使用全部映射图片的并集范围。</td><td>超出某张图覆盖区时必须明确勾选 Fill Missing Range。</td></tr>
           <tr><td>Fill Missing Range</td><td>在图片曲线覆盖外用默认幅度补齐：反射 −20 dB，其他通道 −80 dB。</td><td>Common Range 不显示；Manual / Full Range 需要越界时才应开启。状态栏会标明 Default fill。</td></tr>
-          <tr><td>Coverage Status</td><td>显示输出 Start、Stop、Step、点数、重采样通道、默认补齐和未分配通道数量。</td><td>这是状态显示，不是按钮。</td></tr>
+          <tr><td>Coverage Status / Use finer step</td><td>显示输出网格和覆盖范围。若当前步进改变了已识别的局部细节，列出差异，并在有合法建议时提供更细步进。</td><td>只有点击后才采用建议；输出仍为统一网格，并需重新复核。提示比较的是提取数据与输出采样，不是仪器精度。</td></tr>
+          <tr><td>Phase and impedance assumptions</td><td>明确选择零相位或固定延迟假设，并设置参考阻抗。</td><td>幅度图片不能恢复厂商测量相位；此处是输出模型假设。</td></tr>
           <tr><td>每个 S 参数的映射下拉框</td><td>为当前网络每个参数选择某条图片 Trace，或选择 Return loss −20 dB / Crosstalk −80 dB。</td><td>Unassigned、Unknown 和 Formula 都不是可生成来源；Generate File 会列出所有未分配参数。</td></tr>
           <tr><td><span class="button-swatch">Open Folder</span></td><td>打开图片页最近一次成功生成文件所在目录。</td><td>与生成页的 Open Folder 分别记录最近输出；图片页尚未成功生成时拒绝。</td></tr>
-          <tr><td><span class="button-swatch primary">Generate File</span></td><td>统一输出频率网格，插值已映射曲线，补齐默认通道，建立完整矩阵，执行采样点无源检查并写 Touchstone。</td><td>未分配、频率冲突、超出覆盖但未授权填充、点数超限或完整矩阵非无源时不会写文件。</td></tr>
+          <tr><td><span class="button-swatch primary">Generate File</span></td><td>统一输出频率网格，插值已映射曲线，补齐默认通道，建立完整矩阵，显示当前来源、采样差异与模型假设，经复核确认后执行采样点无源检查并写 Touchstone。</td><td>未分配、频率冲突、超出覆盖但未授权填充、点数超限或完整矩阵非无源时不会写文件。</td></tr>
         </tbody></table></div>
         <div class="callout"><strong>关于 Formula 映射：</strong>图片页下拉列表中的 Formula 是保留来源标记，当前版本没有为它提供可执行曲线。选择后该通道仍被视为 Unassigned；请改选真实 Trace、Return loss −20 dB 或 Crosstalk −80 dB。</div>
         <p>不同图片原始样点数可以不同。程序把已选择曲线插值到一个共同、均匀且包含两端点的输出网格，并报告哪些通道被重采样；这不等同于增加原图测量分辨率。</p>
@@ -466,7 +469,8 @@
           <tr><td>鼠标滚轮</td><td>以约 1.15 倍步进放大或缩小。</td></tr>
           <tr><td>按住左键拖动</td><td>图片大于可视区域时平移查看位置。</td></tr>
         </tbody></table></div>
-        <p class="source-note">图片工作区依据：<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/webui/index.html#L609-L1001">当前图片页全部交互</a>；<a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/blob/main/src/insertion_loss_tool/datasheet_workspace.py#L36-L1179">图片限制、频率策略、映射和输出矩阵</a>；混合模命名参考 <a href="https://helpfiles.keysight.com/scopes/FlexDCA-UG/Content/Topics/TDR-TDT-Mode/Parameters/a_ST_parameters.htm">Keysight FlexDCA — T and S Parameters</a> 与 <a href="https://ibis.org/touchstone_ver2.0/touchstone_ver2_0.pdf">Touchstone File Format Specification 2.0</a> 的 Introduction to Mixed-Mode Concepts、[Mixed-Mode Order] 与 Appendix A。</p>
+        <p class="source-note">图片工作区依据：<a href="../../src/insertion_loss_tool/webui/index.html">当前图片页全部交互</a>；<a href="../../src/insertion_loss_tool/datasheet_workspace.py">图片限制、频率策略、映射和输出矩阵</a>；混合模命名参考 <a href="https://helpfiles.keysight.com/scopes/FlexDCA-UG/Content/Topics/TDR-TDT-Mode/Parameters/a_ST_parameters.htm">Keysight FlexDCA — T and S Parameters</a> 与 <a href="https://ibis.org/touchstone_ver2.0/touchstone_ver2_0.pdf">Touchstone File Format Specification 2.0</a> 的 Introduction to Mixed-Mode Concepts、[Mixed-Mode Order] 与 Appendix A。</p>
+        <p class="source-note">0.6.0 图片功能依据：<a href="../image_fidelity.md">图片曲线保真与纠错及验收范围</a>；<a href="../../src/insertion_loss_tool/image_workspace_editing.py">ImageWorkspaceEditing</a>、<a href="../../src/insertion_loss_tool/image_sampling.py">显示抽点与输出采样诊断</a>、<a href="../../src/insertion_loss_tool/image_export_review.py">ImageExportReview</a>。</p>
       </section>
 
       <section class="doc-section" id="button-index" data-title="全部按钮索引">
@@ -506,7 +510,7 @@
           <tr><td>Formula</td><td><code>formula_web.sNp</code></td><td>同上。</td></tr>
           <tr><td>Draw</td><td><code>draw_web.sNp</code></td><td>控制频率会成为真实输出采样点。</td></tr>
           <tr><td>Modify</td><td><code>modified_web.sNp</code></td><td>另有 <code>modified_web.sNp.report.txt</code>；保持源文件相位，输出格式由当前 More Parameters 决定。</td></tr>
-          <tr><td>Image to S-Parameter</td><td><code>output_1.sNp</code> 等</td><td>当前固定以 Hz、RI 写出；图片 Trace 使用零度相位近似。</td></tr>
+          <tr><td>Image to S-Parameter</td><td><code>output_1.sNp</code> 等</td><td>当前固定以 Hz、RI 写出；图片 Trace 使用明确选择的零相位或固定延迟模型。</td></tr>
         </tbody></table></div>
         <p>默认目录在当前用户的 Documents 下：</p>
         <div class="formula">Windows: %USERPROFILE%\Documents\InsertionLossToolOutputs<br>macOS: ~/Documents/InsertionLossToolOutputs</div>
@@ -534,9 +538,9 @@
         <ol>
           <li>进入 Image to S-Parameter，点击 Add。</li>
           <li>核对 Start、Stop、Step、Y Max、Y Min；有空值时人工填写，然后点 Digitize。</li>
-          <li>为 Trace 选择参数名，例如 S21；把 Ports 设为 2，按需要保留 Reciprocal。</li>
+          <li>检查原图叠加线；漏线、错线时用 Edit traces 修正。把 Ports 设为 2，按需要保留 Reciprocal。</li>
           <li>在 S11/S12/S21/S22 映射中选择真实 Trace 或明确的 −20/−80 dB 默认曲线。</li>
-          <li>选择 Common Range；Coverage Status 显示网格且无 Unassigned 后，点击 Generate File。</li>
+          <li>选择 Common Range；Coverage Status 显示网格且无 Unassigned 后，点击 Generate File，核对频段、采样损失和模型假设，勾选复核后确认生成。</li>
         </ol>
         <h3>组合不同频率网格的多张图片</h3>
         <ol>
@@ -580,7 +584,7 @@
           <tr><td>首次启动</td><td>单文件 EXE 会先解包到系统临时目录，因此启动可能比目录版慢；退出后由引导程序清理临时目录。这不会在发布目录产生 <code>_internal</code>。该行为见 <a href="https://pyinstaller.org/en/stable/operating-mode.html#how-the-one-file-program-works">PyInstaller 官方 one-file 运行说明</a>。</td></tr>
           <tr><td>SmartScreen</td><td>当前构建没有商业代码签名，Windows 可能显示信誉提示。应核对发布来源和 SHA-256，不应关闭系统安全功能或下载来历不明的副本。</td></tr>
         </tbody></table></div>
-        <div class="callout warning"><strong>自动构建不替代实机人工验收。</strong>GitHub Actions workflow 会在 Windows runner 上执行完整测试、压力测试、源码与 EXE 自检、WebView2 渲染探针和单 EXE ZIP 结构检查；真实用户电脑的双击、SmartScreen、文件选择器和完整交互仍应单独记录。</div>
+        <div class="callout warning"><strong>自动构建不替代实机人工验收。</strong>公开仓库 workflow 会在 Windows runner 上执行完整测试、压力测试、源码与 EXE 自检、WebView2 渲染探针和单 EXE ZIP 结构检查；真实用户电脑的双击、SmartScreen、文件选择器和完整交互仍应单独记录。</div>
         <p class="source-note">打包合同：<a href="../../AGENTS.md">Windows 构建与验收要求</a>；<a href="../../build_windows_exe.bat">唯一 Windows 打包入口</a>；构建工作流见 <a href="../../.github/workflows/windows-build.yml">GitHub Actions Windows onefile workflow</a>。</p>
       </section>
 
@@ -605,11 +609,11 @@
       <section class="doc-section" id="sources" data-title="版本与依据">
         <div class="section-kicker">13 · VERSION & EVIDENCE</div>
         <h2>文档版本与功能依据</h2>
-        <p>本说明书按以下不可变源码快照逐项核对。界面、默认值或算法升级后，应重新盘点控件和输出合同。</p>
+        <p>早期功能依据公开仓库历史；0.6.0 识图更新依据第 6 节列出的同版本源码与验证合同。具体构建提交及平台验收状态见公开仓库的 Actions 日志。</p>
         <div class="table-wrap"><table><tbody>
           <tr><th>项目</th><td>Insertion Loss Tool / <code>insertion-loss-tool-public</code></td></tr>
-          <tr><th>工具版本</th><td><code>0.5.0</code></td></tr>
-          <tr><th>功能快照</th><td>独立 public 仓库的当前 <code>main</code> 快照。</td></tr>
+          <tr><th>工具版本</th><td><code>0.6.0</code></td></tr>
+          <tr><th>源码</th><td><a href="https://github.com/ZhenlongYou/insertion-loss-tool-public/tree/main"><code>main</code></a></td></tr>
           <tr><th>主界面</th><td><code>src/insertion_loss_tool/webui/index.html</code>：两个主页签、四种模式、图表工具、图片工作区和全部浏览器端行为。</td></tr>
           <tr><th>桌面桥接</th><td><code>src/insertion_loss_tool/webview_gui.py</code>：默认值、文件选择、后台运行、输出路径、打开目录和状态回传。</td></tr>
           <tr><th>生成与 Modify</th><td><code>src/insertion_loss_tool/models.py</code>、<code>modify_passivity.py</code>：频率轴、网络生成、形状保持修改、目标插入和无源收缩。</td></tr>

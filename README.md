@@ -9,6 +9,10 @@ files for other positive port counts.
 Windows 单文件版运行要求，见
 [《Insertion Loss Tool 使用说明书》](docs/user_manual/InsertionLossTool_使用说明书.html)。
 
+0.6.0 的图片曲线保真、手动纠错和输出采样提示见
+[图片曲线保真与纠错](docs/image_fidelity.md)。Windows 单文件构建由公开仓库的
+GitHub Actions workflow 执行，结果和可下载 artifact 位于仓库的 Actions 页面。
+
 ## Standalone Desktop App
 
 The desktop GUI entry point is:
@@ -210,10 +214,10 @@ is required. Tesseract is an optional external dependency for automatic OCR;
 without it, image traces can still be extracted but labels and axes must be
 reviewed manually.
 
-The standalone public repository also contains a GitHub Actions workflow at
-`.github/workflows/windows-build.yml`. It runs on `windows-2022` for pushes to
-`main` and manual dispatches, then uploads the verified ZIP and SHA-256 file as
-the `InsertionLossTool-windows-x64-onefile` artifact.
+The public repository workflow at `.github/workflows/windows-build.yml` runs the
+same contract on `windows-2022`. A manual dispatch can upload the verified
+single-EXE ZIP and, when requested, publish that ZIP with its SHA-256 manifest
+as a GitHub Release.
 
 ## Stress Test
 
@@ -526,3 +530,9 @@ include all sixteen S-parameters.
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
+
+## 图片曲线修正
+
+0.6.0 保留图框、排除区、原图取色、锚点修线和方案保存恢复；识别结果仍应在
+界面中复核，尤其是同色交叉、文字干扰和深尖峰/凹口。实现与有限回归范围见
+[图片曲线保真与纠错](docs/image_fidelity.md)。

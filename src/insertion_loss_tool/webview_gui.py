@@ -135,6 +135,8 @@ RENDERER_PROBE_SCRIPT = r"""
     tabButtons[0].click();
   }
   const switchMs = performance.now() - switchStart;
+  // Freeze the tab-switch measurement before the later explicit editor call.
+  const switchBridgeCalls = Number(window.insertionLossBridgeCalls || 0) - bridgeBefore;
   tabButtons[1].click();
   const outputPanelHeight = outputPanel.getBoundingClientRect().height;
   const imagePanelWidth = imagePanel.getBoundingClientRect().width;
@@ -212,7 +214,7 @@ RENDERER_PROBE_SCRIPT = r"""
   const fakeCandidateImage = {
     index: 1, name: 'candidate-before-axes.png', data_url: 'data:image/png;base64,iVBORw0KGgo=', sha256: 'candidate-before-axes', byte_count: 12,
     axis: {status:'review',source:'none',start:'',stop:'',step:'',spacing:'linear'},
-    digitization: {status:'review',candidate_status:'preview',candidates:2,message:'2 trace candidates found; set missing axes.'},
+    digitization: {status:'review',candidate_status:'preview',candidates:2,message:'2 trace candidates found; set missing axes.',image_width:100,image_height:60,plot_box:[5,5,95,55]},
     curves: [
       {id:'A',parameter:'自动',color:'Magenta',rgb:[201,145,170],samples:5,observed_samples:5,calibrated:false,preview_points:[[10,42],[45,28],[90,18]]},
       {id:'B',parameter:'自动',color:'Cyan',rgb:[91,192,222],samples:5,observed_samples:5,calibrated:false,preview_points:[[10,44],[45,30],[90,20]]}
@@ -222,6 +224,7 @@ RENDERER_PROBE_SCRIPT = r"""
   const fakeMappings = {S11:'图1 A · SDD21',S12:'自动',S21:'自动',S22:'自动'};
   window.insertionLossUiProbe.render({images:[fakeCandidateImage], detected_parameters:[], source_options:['自动','匹配 0','反射 -20 dB','耦合 -80 dB'], networks:[]});
   const candidateTraceCount=document.querySelectorAll('[data-trace-row]').length;
+  const candidateOverlayCount=document.querySelectorAll('#image-preview [data-overlay-trace]').length;
   const candidateHasParameterSelect=Boolean(document.querySelector('[data-trace-row] select'));
   const candidateListStatus=document.querySelector('.image-item small:last-child')?.textContent.trim() || '';
   const candidateTitle=document.querySelector('#curve-title')?.textContent.trim() || '';
@@ -246,6 +249,18 @@ RENDERER_PROBE_SCRIPT = r"""
   const visualReviewHelpText=document.querySelector('#visual-review-help')?.textContent.trim() || '';
   const visualReviewMappingHint=document.querySelector('#mapping-hint')?.textContent.trim() || '';
   const visualReviewHighlightSelected=document.querySelector('[data-overlay-review="B"]')?.style.strokeWidth === '8';
+  // Exercise the actual editor button with unsaved form values; intercept only
+  // the bridge boundary so this layout fixture cannot mutate a real workspace.
+  const editorFields={'#image-f-start':'2GHz','#image-f-stop':'4GHz','#image-f-step':'20MHz','#image-spacing':'linear','#image-y-max':'0','#image-y-min':'60','#image-y-convention':'positive-loss'};
+  const editorPrevious=Object.fromEntries(Object.keys(editorFields).map(id=>[id,document.querySelector(id).value]));
+  const editorBridge=window.pywebview.api.image_edit_recipe;
+  let editorArguments=null;
+  window.pywebview.api.image_edit_recipe=(...args)=>{editorArguments=args;return Promise.resolve({ok:false,error:'Editor calibration probe complete'});};
+  for(const [id,value] of Object.entries(editorFields))document.querySelector(id).value=value;
+  document.querySelector('#edit-image').click();
+  window.pywebview.api.image_edit_recipe=editorBridge;
+  for(const [id,value] of Object.entries(editorPrevious))document.querySelector(id).value=value;
+  const editorCalibrationSent=JSON.stringify(editorArguments?.[1])===JSON.stringify({start:'2GHz',stop:'4GHz',step:'20MHz',spacing:'linear',y_top_db:'0',y_bottom_db:'60',y_convention:'positive-loss'});
   const unassignedOptionText=[...document.querySelectorAll('[data-mapping]')].find(select=>select.value==='自动')?.selectedOptions[0]?.textContent.trim() || '';
   const bridgeBeforeUnassigned=Number(window.insertionLossBridgeCalls || 0);
   document.querySelector('#generate-network').click();
@@ -334,7 +349,7 @@ RENDERER_PROBE_SCRIPT = r"""
     tabLabels: tabButtons.map(button => button.textContent.trim()),
     activePanels: document.querySelectorAll('.workspace.active').length,
     switchMs,
-    bridgeCalls: Number(window.insertionLossBridgeCalls || 0) - bridgeBefore,
+    bridgeCalls: switchBridgeCalls,
     overflowFree: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     outputPanelHeight,
     imagePanelWidth,
@@ -381,7 +396,9 @@ RENDERER_PROBE_SCRIPT = r"""
     visualReviewHelpText,
     visualReviewMappingHint,
     visualReviewHighlightSelected,
+    editorCalibrationSent,
     candidateTraceCount,
+    candidateOverlayCount,
     candidateHasParameterSelect,
     candidateListStatus,
     candidateTitle,
@@ -819,7 +836,7 @@ def validate_renderer_probe(
     if (
         int(probe.get("visualReviewOverlayCount", 0)) != 1
         or probe.get("visualReviewCardText")
-        != "Review 1 highlighted area · 72% confidence"
+        != "Review 1 highlighted area · image accuracy not assessed"
         or probe.get("visualReviewHelpText")
         != "Orange dashed areas need visual review · 1 highlighted"
         or probe.get("visualReviewMappingHint")
@@ -844,6 +861,7 @@ def validate_renderer_probe(
         raise RuntimeError("Image generation does not explain unassigned channels before export.")
     if (
         int(probe.get("candidateTraceCount", 0)) != 2
+        or int(probe.get("candidateOverlayCount", 0)) != 2
         or bool(probe.get("candidateHasParameterSelect"))
         or probe.get("candidateListStatus") != "2 trace candidates · Calibrate axes"
         or probe.get("candidateTitle") != "Trace Candidates · 2"
@@ -851,6 +869,8 @@ def validate_renderer_probe(
         raise RuntimeError(
             "Uncalibrated image trace candidates are not visible and safely disabled in the rendered interface."
         )
+    if not probe.get("editorCalibrationSent"):
+        raise RuntimeError("Trace editor did not send the current unsaved X/Y calibration fields.")
     if probe.get("traceUsageTexts") != [
         "Used by Output 1 S11",
         "Not used · choose it in the S-parameter panel",
@@ -1042,7 +1062,7 @@ class InsertionLossWebApi:
         except (TypeError, ValueError):
             # Codex说明(自动生成)： 计算并保存 count，供后续语句继续读取或更新。
             count = 2
-        # Codex说明(自动生成)： 计算并保存 selected，供后续语句继续读取或更新。
+        # 选择当前累计代价最低的候选索引。
         selected = self._window.create_file_dialog(
             webview.FileDialog.SAVE,
             save_filename=f"insertion_loss.s{count}p",
@@ -1068,7 +1088,7 @@ class InsertionLossWebApi:
 
         # Codex说明(自动生成)： 开始执行可能失败的代码块，并把异常、收尾或兜底逻辑交给后续分支处理。
         try:
-            # Codex说明(自动生成)： 计算并保存 selected，供后续语句继续读取或更新。
+            # 选择当前累计代价最低的候选索引。
             selected = self._window.create_file_dialog(
                 webview.FileDialog.OPEN,
                 allow_multiple=False,
@@ -1126,7 +1146,7 @@ class InsertionLossWebApi:
 
         # Codex说明(自动生成)： 开始执行可能失败的代码块，并把异常、收尾或兜底逻辑交给后续分支处理。
         try:
-            # Codex说明(自动生成)： 计算并保存 selected，供后续语句继续读取或更新。
+            # 选择当前累计代价最低的候选索引。
             selected = self._window.create_file_dialog(
                 webview.FileDialog.OPEN,
                 allow_multiple=True,
@@ -1140,7 +1160,7 @@ class InsertionLossWebApi:
         if not selected:
             # Codex说明(自动生成)： 返回 {'ok': True, 'cancelled': True}，让调用方取得本函数的处理结果。
             return {"ok": True, "cancelled": True}
-        # Codex说明(自动生成)： 计算并保存 values，供后续语句继续读取或更新。
+        # 将图框内 RGB 转为浮点，避免无符号像素减法溢出。
         values = selected if isinstance(selected, (list, tuple)) else (selected,)
         # Codex说明(自动生成)： 返回 self.register_images((Path(value) for value in values))，让调用方取得本函数的处理结果。
         return self.register_images(Path(value) for value in values)
@@ -1238,13 +1258,81 @@ class InsertionLossWebApi:
         return self._datasheet.set_mapping(index, parameter, source)
 
     # Codex说明(自动生成)： 定义函数 generate_datasheet_network，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def image_edit_recipe(self, index, calibration=None):
+        # 返回当前图片的可编辑校准和路径方案。
+        return self._datasheet.image_edit_recipe(index, calibration)
+
+    # Codex说明(自动生成)： 定义函数 apply_image_recipe，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def apply_image_recipe(self, index, recipe):
+        # 后端原子应用修正，失败时保留原图和已有曲线。
+        return self._datasheet.apply_image_recipe(index, recipe)
+
+    # Codex说明(自动生成)： 定义函数 undo_image_recipe，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def undo_image_recipe(self, index):
+        # 只撤销当前图片的最近修正。
+        return self._datasheet.undo_image_recipe(index)
+
+    # Codex说明(自动生成)： 定义函数 export_image_asset，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def export_image_asset(self, index, kind):
+        # 导出修线方案或幅度 CSV，保存路径限定在应用输出目录。
+        try:
+            # 先规范索引，避免字符串或布尔值进入文件名计算。
+            from .datasheet_workspace import _bounded_integer
+            # Codex说明(自动生成)： 计算并保存 index，供后续语句继续读取或更新。
+            index = _bounded_integer(index, 0, len(self._datasheet._images)-1)
+            # Codex说明(自动生成)： 检查条件 kind == 'recipe'，根据结果选择后续执行路径。
+            if kind == 'recipe':
+                # Codex说明(自动生成)： 计算并保存 content，供后续语句继续读取或更新。
+                content = json.dumps(self.image_edit_recipe(index)['recipe'], ensure_ascii=False, indent=2)
+                # Codex说明(自动生成)： 计算并保存 suffix，供后续语句继续读取或更新。
+                suffix = '.image-project.json'
+            # Codex说明(自动生成)： 当前一分支未命中时，继续检查条件 kind == 'csv'。
+            elif kind == 'csv':
+                # Codex说明(自动生成)： 计算并保存 content，供后续语句继续读取或更新。
+                content = self._datasheet.image_curve_csv(index)
+                # Codex说明(自动生成)： 计算并保存 suffix，供后续语句继续读取或更新。
+                suffix = '.csv'
+            # Codex说明(自动生成)： 处理前面条件都未命中时的默认分支。
+            else:
+                # Codex说明(自动生成)： 抛出 ValueError('导出类型无效。')，明确提示输入、状态或处理流程无法继续。
+                raise ValueError('导出类型无效。')
+            # Codex说明(自动生成)： 进入上下文 self._output_lock，确保文件、资源或临时状态按作用域正确释放。
+            with self._output_lock:
+                # Codex说明(自动生成)： 计算并保存 path，供后续语句继续读取或更新。
+                path = self._next_available_output_path(OUTPUT_DIR / ('image_'+str(index+1)+suffix), includes_report=False)
+                # Codex说明(自动生成)： 调用 path.parent.mkdir，执行当前流程需要的具体操作或副作用。
+                path.parent.mkdir(parents=True, exist_ok=True)
+                # Codex说明(自动生成)： 调用 path.write_text 写出文件或数据，保存当前处理结果。
+                path.write_text(content, encoding='utf-8')
+            # Codex说明(自动生成)： 返回 {'ok': True, 'output': str(path)}，让调用方取得本函数的处理结果。
+            return {'ok': True, 'output': str(path)}
+        # Codex说明(自动生成)： 捕获 (ValueError, IndexError, KeyError, TypeError, OSError)，执行对应的恢复、记录或重新报错逻辑。
+        except (ValueError, IndexError, KeyError, TypeError, OSError) as error:
+            # Codex说明(自动生成)： 返回 {'ok': False, 'error': str(error)}，让调用方取得本函数的处理结果。
+            return {'ok': False, 'error': str(error)}
+
+    # Codex说明(自动生成)： 定义函数 preview_image_export，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def preview_image_export(self, index):
+        # 导出前提供频段、来源和建模假设的可复核快照。
+        return self._datasheet.preview_image_export(index)
+
+    # Codex说明(自动生成)： 定义函数 confirm_image_export，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def confirm_image_export(self, index, token):
+        # 用户确认只能作用于先前预览的同一版本。
+        return self._datasheet.confirm_image_export(index, token)
+
+    # Codex说明(自动生成)： 定义函数 set_image_network_model，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def set_image_network_model(self, index, phase, delay_ns, z0):
+        # 图片幅度没有相位；这里配置显式假设而非恢复测量相位。
+        return self._datasheet.set_image_network_model(index, phase, delay_ns, z0)
+
     def generate_datasheet_network(self, index: object) -> dict[str, object]:
         """Generate the selected image-composed network as a Touchstone file."""
 
         # Codex说明(自动生成)： 开始执行可能失败的代码块，并把异常、收尾或兜底逻辑交给后续分支处理。
         try:
             # Codex说明(自动生成)： 计算并保存 (data, output_name, family)，供后续语句继续读取或更新。
-            data, output_name, family = self._datasheet.compose_network_touchstone(index)
+            data, output_name, family, provenance = self._datasheet.compose_reviewed_image_network(index)
             # Codex说明(自动生成)： 计算并保存 expected_suffix，供后续语句继续读取或更新。
             expected_suffix = f".s{data.n_ports}p"
             # Codex说明(自动生成)： 计算并保存 safe_name，供后续语句继续读取或更新。
@@ -1271,7 +1359,8 @@ class InsertionLossWebApi:
                 output.parent.mkdir(parents=True, exist_ok=True)
                 # Codex说明(自动生成)： 调用 write_touchstone，执行当前流程需要的具体操作或副作用。
                 write_touchstone(
-                    data, output, frequency_unit="hz", data_format="ri"
+                    data, output, frequency_unit="hz", data_format="ri",
+                    comments=["Image provenance: " + json.dumps(provenance, ensure_ascii=True, sort_keys=True)]
                 )
             # Codex说明(自动生成)： 进入上下文 self._state_lock，确保文件、资源或临时状态按作用域正确释放。
             with self._state_lock:
@@ -1286,7 +1375,7 @@ class InsertionLossWebApi:
                 "points": int(data.frequency_hz.size),
                 "ports": data.n_ports,
                 "parameter_family": family,
-                "phase_assumption": "zero-degree",
+                "phase_assumption": provenance["phase_assumption"],
                 "sigma_max": diagnostics.maximum_singular_value,
             }
         # Codex说明(自动生成)： 捕获 Exception，执行对应的恢复、记录或重新报错逻辑。
@@ -1477,7 +1566,7 @@ class InsertionLossWebApi:
             choices = "、".join(str(value) for value in COMMON_PORT_COUNTS)
             # Codex说明(自动生成)： 抛出 ValueError(f'常规生成仅支持 {choices} 端口。')，明确提示输入、状态或处理流程无法继续。
             raise ValueError(f"常规生成仅支持 {choices} 端口。")
-        # Codex说明(自动生成)： 计算并保存 frequency，供后续语句继续读取或更新。
+        # 把原图水平像素位置映射到线性或对数频率，单位 Hz。
         frequency = generate_frequency_axis(
             parse_frequency(str(config.get("f_start", "10MHz"))),
             parse_frequency(str(config.get("f_stop", "40GHz"))),
@@ -1512,7 +1601,7 @@ class InsertionLossWebApi:
                 raise ValueError("手绘至少需要 2 个控制点。")
             # Codex说明(自动生成)： 计算并保存 controls，供后续语句继续读取或更新。
             controls = parse_draw_points(tokens)
-            # Codex说明(自动生成)： 计算并保存 frequency，供后续语句继续读取或更新。
+            # 把原图水平像素位置映射到线性或对数频率，单位 Hz。
             frequency = insert_draw_control_frequencies(frequency, controls)
             # Codex说明(自动生成)： 计算并保存 loss，供后续语句继续读取或更新。
             loss = interpolate_drawn_loss(
@@ -1637,7 +1726,7 @@ class InsertionLossWebApi:
         for out_port in range(data.n_ports):
             # Codex说明(自动生成)： 遍历 range(data.n_ports) 中的 in_port，逐项执行循环体逻辑。
             for in_port in range(data.n_ports):
-                # Codex说明(自动生成)： 计算并保存 values，供后续语句继续读取或更新。
+                # 将图框内 RGB 转为浮点，避免无符号像素减法溢出。
                 values = data.s[indices, out_port, in_port]
                 # Codex说明(自动生成)： 调用 series.append 更新列表或集合，把当前步骤产生的数据加入结果。
                 series.append(
@@ -1710,6 +1799,40 @@ class InsertionLossJsApi:
         self._controller = controller
 
     # Codex说明(自动生成)： 定义函数 get_defaults，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def image_edit_recipe(self, index, calibration=None):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.image_edit_recipe(index, calibration)
+
+    # Codex说明(自动生成)： 定义函数 apply_image_recipe，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def apply_image_recipe(self, index, recipe):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.apply_image_recipe(index, recipe)
+
+    # Codex说明(自动生成)： 定义函数 undo_image_recipe，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def undo_image_recipe(self, index):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.undo_image_recipe(index)
+
+    # Codex说明(自动生成)： 定义函数 export_image_asset，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def export_image_asset(self, index, kind):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.export_image_asset(index, kind)
+
+    # Codex说明(自动生成)： 定义函数 preview_image_export，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def preview_image_export(self, index):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.preview_image_export(index)
+
+    # Codex说明(自动生成)： 定义函数 confirm_image_export，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def confirm_image_export(self, index, token):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.confirm_image_export(index, token)
+
+    # Codex说明(自动生成)： 定义函数 set_image_network_model，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
+    def set_image_network_model(self, index, phase, delay_ns, z0):
+        # 显式桥接到同一工作区，保持 UI 与数值后端的行为一致。
+        return self._controller.set_image_network_model(index, phase, delay_ns, z0)
+
     def get_defaults(self) -> dict[str, object]:
         # Codex说明(自动生成)： 返回 self._controller.get_defaults()，让调用方取得本函数的处理结果。
         return self._controller.get_defaults()

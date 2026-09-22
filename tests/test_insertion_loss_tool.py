@@ -677,7 +677,7 @@ class InsertionLossToolTests(unittest.TestCase):
             # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
             self.assertTrue(hasattr(insertion_loss_tool, name), name)
         # Codex说明(自动生成)： 调用 self.assertEqual 检查测试期望，确认实际结果符合预期。
-        self.assertEqual(insertion_loss_tool.__version__, "0.5.0")
+        self.assertEqual(insertion_loss_tool.__version__, "0.6.0")
 
     # Codex说明(自动生成)： 定义函数 test_main_py_runs_from_global_settings_without_cli_args，把一段可复用的业务步骤、计算过程或入口逻辑封装起来。
     def test_main_py_runs_from_global_settings_without_cli_args(self):

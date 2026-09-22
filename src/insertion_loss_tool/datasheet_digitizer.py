@@ -8,7 +8,7 @@ additional independent samples.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import colorsys
 from pathlib import Path
 import re
@@ -21,6 +21,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from .curve_visual_review import CurveReviewRegion, attach_visual_review
+from .raster_path_geometry import colour_evidence_mask, preserve_raster_turns
 from .trace_recovery_policy import (
     AMBIGUOUS_HUE_PAIR_SIZE,
     ANTIALIAS_BRIDGE_DENSITY_LIMIT,
@@ -263,12 +264,32 @@ def _detect_plot_box_from_neutral_lines(
     """Locate one 2-D grid from a prequalified neutral-pixel mask."""
 
     horizontal = _cluster_positions(neutral_line.sum(axis=1) >= rgb.shape[1] * 0.34)
-    top, bottom = _regular_grid_extent(
-        horizontal,
-        minimum_lines=minimum_horizontal_lines,
-        minimum_extent=max(80.0, rgb.shape[0] * 0.22),
-        preferred_completeness=0.8,
-    )
+    minimum_extent = max(80.0, rgb.shape[0] * 0.22)
+    if minimum_horizontal_lines == 3:
+        # A short vertical scale can have just its two borders and one centre
+        # grid line. Require a complete, equally spaced triple here; the dense
+        # independent vertical progression below is still mandatory. This is
+        # used only after the existing four/five-line locators have failed.
+        triples = []
+        for first in range(len(horizontal) - 2):
+            for last in range(first + 2, len(horizontal)):
+                span = float(horizontal[last] - horizontal[first])
+                if span < minimum_extent:
+                    continue
+                midpoint = (horizontal[first] + horizontal[last]) / 2
+                errors = abs(horizontal[first + 1:last] - midpoint)
+                if errors.size and errors.min() <= max(2.25, span * 0.0125):
+                    triples.append((span, -float(errors.min()), int(round(horizontal[first])), int(round(horizontal[last]))))
+        if not triples:
+            raise ValueError("Could not locate a regular plot grid.")
+        _span, _error, top, bottom = max(triples)
+    else:
+        top, bottom = _regular_grid_extent(
+            horizontal,
+            minimum_lines=minimum_horizontal_lines,
+            minimum_extent=minimum_extent,
+            preferred_completeness=0.8,
+        )
     horizontal_rows = [
         int(round(position))
         for position in horizontal
@@ -548,6 +569,16 @@ def _detect_plot_box(rgb: NDArray[np.uint8]) -> tuple[int, int, int, int]:
             return internal_result
     if first_result is not None:
         return first_result
+    # A three-line horizontal scale is accepted only with the existing dense
+    # vertical-grid and endpoint support contract. It must not weaken a plot
+    # rectangle already found using the stronger four/five-line evidence.
+    for neutral_line, _minimum_lines in (attempts[0], attempts[-1]):
+        try:
+            return _detect_plot_box_from_neutral_lines(
+                rgb, neutral_line, minimum_horizontal_lines=3
+            )
+        except ValueError:
+            continue
     raise ValueError("Could not locate a regular plot grid.")
 
 
@@ -765,7 +796,7 @@ def _adaptive_color_masks(
     )
     # Datasheet exports often anti-alias thin traces almost to grey.  A low
     # chroma floor still excludes neutral grids while retaining those pixels.
-    valid = (delta >= 10) & (saturation >= 0.04) & (maximum > 25)
+    valid = (delta >= 10) & (saturation >= 0.04)
     hue = np.zeros_like(maximum, dtype=np.float32)
     nonzero = delta > 0
     red = nonzero & (values[..., 0] == maximum)
@@ -970,7 +1001,6 @@ def _extract_achromatic_curves(
     minimum = values.min(axis=2)
     neutral = (
         ((maximum - minimum) <= 5)
-        & (maximum >= 25)
         & (maximum <= 235)
     )
 
@@ -978,35 +1008,86 @@ def _extract_achromatic_curves(
         """Find gray grid bands even where a coloured trace interrupts them."""
 
         hits = neutral.sum(axis=axis)
-        lines = hits >= max(12, round(line_length * 0.55))
+        lines = np.zeros(hits.shape, dtype=np.bool_)
         candidates = np.flatnonzero(
             hits >= max(12, round(line_length * 0.30))
         )
         if candidates.size < 3:
             return lines
-        median_values: list[float] = []
-        for line_index in candidates:
-            line_mask = neutral[line_index, :] if axis == 1 else neutral[:, line_index]
-            line_values = maximum[line_index, :] if axis == 1 else maximum[:, line_index]
-            median_values.append(float(np.median(line_values[line_mask])))
-        medians = np.asarray(median_values, dtype=np.float64)
-        for candidate_offset, line_index in enumerate(candidates):
-            # Three or more long parallel bands with the same neutral shade
-            # are grid evidence.  This also catches a grid line that has been
-            # cut in half by a coincident coloured trace.
-            if np.count_nonzero(np.abs(medians - medians[candidate_offset]) <= 4.0) >= 3:
-                lines[line_index] = True
+        # Consecutive rows belong to ONE stroke, not three independent grid
+        # lines. A long horizontal trace alone must survive this test.
+        bands = np.split(candidates, np.flatnonzero(np.diff(candidates) > 2) + 1)
+        if len(bands) < 3:
+            return lines
+        # Fit ONE dominant lattice to the already detected plot boundaries.
+        # Unrelated triples can accidentally be equally spaced; accepting all
+        # such triples would classify a flat data trace as another grid row.
+        best = None
+        for intervals in range(2, 17):
+            step = (len(lines) - 1) / intervals
+            if step < 6:
+                continue
+            expected = np.linspace(0, len(lines) - 1, intervals + 1)
+            # A curve crossing a grid column can broaden its candidate band.
+            # Use distance to the band, so that crossing cannot shift the grid
+            # centre and leave a whole vertical grid stroke in the trace mask.
+            lower = np.asarray([band[0] for band in bands])
+            upper = np.asarray([band[-1] for band in bands])
+            distances = np.maximum(np.maximum(lower[None, :] - expected[:, None], expected[:, None] - upper[None, :]), 0)
+            tolerance = max(2, step * 0.025)
+            nearest = distances.min(axis=1)
+            matched = nearest <= tolerance
+            if matched.sum() < 3 or matched.mean() < 0.70:
+                continue
+            # Three independent bands prove only the complete two-division
+            # grid. Incomplete larger lattices with three chance matches do
+            # not prove that an isolated horizontal trace is a grid line.
+            if matched.sum() == 3 and (intervals != 2 or not matched.all()):
+                continue
+            score = (int(matched.sum()), float(matched.mean()), -float(nearest[matched].mean()))
+            selected = np.flatnonzero(distances.min(axis=0) <= tolerance)
+            if best is None or score > best[0]:
+                best = (score, selected)
+        if best is not None:
+            for match in best[1]:
+                lines[bands[match]] = True
         return lines
 
     # Suppress complete or periodically repeated grid/spine bands, including
     # their anti-aliased neighbours.
     grid_rows = repeated_neutral_lines(axis=1, line_length=width)
     grid_columns = repeated_neutral_lines(axis=0, line_length=height)
-    grid_rows = _dilated_line_mask(grid_rows, radius=2)
-    grid_columns = _dilated_line_mask(grid_columns, radius=2)
     usable = neutral.copy()
-    usable[grid_rows, :] = False
-    usable[:, grid_columns] = False
+    # JPEG/resampled grid strokes contain many neutral edge shades. Suppress
+    # those bands while retaining pixels substantially darker than their core;
+    # black/dark-gray traces over pale grid lines keep their crossings. A pale
+    # trace at a grid intersection is ambiguous and keeps an explicit gap.
+    for axis, flags in ((1, grid_rows), (0, grid_columns)):
+        indexes = np.flatnonzero(flags)
+        bands = np.split(indexes, np.flatnonzero(np.diff(indexes) > 2) + 1) if indexes.size else []
+        # Use the repeated bands' dark cores, not one pale antialias row. A
+        # data curve can overwrite one grid band; the median over independent
+        # bands prevents that one crossing from redefining the grid's shade.
+        core_shades = []
+        edge_shades = []
+        for band in bands:
+            samples = maximum[band, :] if axis == 1 else maximum[:, band]
+            supported = neutral[band, :] if axis == 1 else neutral[:, band]
+            core_shades.append(float(np.percentile(samples[supported], 10)))
+            edge_shades.append(float(np.percentile(samples[supported], 90)))
+        grid_core = float(np.median(core_shades)) if core_shades else 0
+        grid_edge = float(np.median(edge_shades)) if edge_shades else 255
+        dark_limit = grid_core * 0.55
+        # For an unblended uniform grid a much lighter trace is distinguishable
+        # too. Resampled/JPEG grids do not have that evidence; their pale edges
+        # must remain suppressed rather than become additional gray traces.
+        light_limit = grid_edge + 28 if grid_edge - grid_core <= 8 else 255
+        for band in bands:
+            start, stop = max(0, int(band[0]) - 2), min(len(flags), int(band[-1]) + 3)
+            if axis == 1:
+                usable[start:stop, :] &= (maximum[start:stop, :] < dark_limit) | (maximum[start:stop, :] > light_limit)
+            else:
+                usable[:, start:stop] &= (maximum[:, start:stop] < dark_limit) | (maximum[:, start:stop] > light_limit)
     border = max(2, round(min(height, width) * 0.004))
     usable[:border, :] = False
     usable[-border:, :] = False
@@ -1019,6 +1100,7 @@ def _extract_achromatic_curves(
     # final coverage gates still reject unrelated fragments.
     maximum_gap = max(12, round(width * 0.08))
     row_group_gap = max(2, round(height * 0.008))
+
     tracks: list[dict[str, object]] = []
 
     def allowed_jump(gap: int) -> float:
@@ -1128,7 +1210,15 @@ def _extract_achromatic_curves(
         x_array = np.asarray(track["x"], dtype=np.float64)
         y_array = np.asarray(track["y"], dtype=np.float64)
         span = float(x_array[-1] - x_array[0] + 1)
-        if span < width * (0.45 if allow_sparse else 0.70):
+        # A neutral trace may have a smaller specified bandwidth than the
+        # coloured traces (for example 40 GHz in a 110 GHz plot). Require a
+        # dense observed run anchored at the left boundary; text in an internal
+        # legend cannot qualify merely by occupying many columns.
+        left_anchored_partial = (
+            allow_sparse and x_array[0] <= max(3, width * 0.02)
+            and span >= width * 0.30 and x_array.size / span >= 0.85
+        )
+        if span < width * (0.45 if allow_sparse else 0.70) and not left_anchored_partial:
             continue
         normalized_x = x_array / max(width - 1, 1)
         if spacing == "log":
@@ -1241,15 +1331,27 @@ def _extract_curves(
     mask = (
         (chroma >= 10)
         & (saturation >= 0.04)
-        & (maximum > 25)
         & ((maximum < 235) | (saturation >= 0.20))
     )
-    vertical_count = mask.sum(axis=0)
-    mask[:, vertical_count > max(24, round(height * 0.45))] = False
+    # A long coloured column can be a real narrow notch. Keep its two-dimensional
+    # extent for connected tracking; total column occupancy is not grid evidence.
 
     tracks: list[dict[str, object]] = []
     maximum_gap = max(12, round(width * 0.05))
     row_group_gap = max(2, round(height * 0.008))
+
+    # Dense separated glyph/legend groups are not one vertical stroke. Retain
+    # the old annotation guard there, but never erase a single connected notch
+    # merely because its vertical extent is large.
+    for column in np.flatnonzero(mask.sum(axis=0) > max(24, round(height * 0.45))):
+        occupied = np.flatnonzero(mask[:, column])
+        groups = np.split(occupied, np.flatnonzero(np.diff(occupied) > row_group_gap) + 1)
+        if len(groups) > 1:
+            # Detached speckles must not make a connected tall lobe disappear.
+            supported = [group for group in groups if group.size > max(24, round(height * 0.45))]
+            mask[:, column] = False
+            for group in supported:
+                mask[group, column] = True
 
     def allowed_center_jump(gap: int) -> float:
         """Use one continuity threshold in primary and fallback tracking."""
@@ -2242,7 +2344,6 @@ def _coupled_trace_observations(
     mask = (
         (chroma >= 10)
         & (saturation >= 0.04)
-        & (maximum > 25)
         & ((maximum < 235) | (saturation >= 0.20))
     )
     vertical_count = mask.sum(axis=0)
@@ -3389,6 +3490,9 @@ def digitize_plot_image(
     spacing: str = "linear",
     run_ocr: bool = True,
     parameter_hint: str | None = None,
+    plot_box_override=None,
+    trace_specs=None,
+    exclusion_boxes=(),
 ) -> DigitizationResult:
     """Recover visible magnitude traces from one datasheet graph image.
 
@@ -3411,7 +3515,6 @@ def digitize_plot_image(
         raise ValueError("Log frequency spacing requires a positive start frequency.")
     image_path = Path(path).expanduser().resolve()
     rgb = _decode_image(image_path)
-    plot_box = _detect_plot_box(rgb)
     normalized_hint: str | None = None
     if parameter_hint is not None and str(parameter_hint).strip():
         normalized_hint, _hint_warnings = detect_parameter_text(
@@ -3419,6 +3522,30 @@ def digitize_plot_image(
         )
         if normalized_hint is None:
             raise ValueError("Parameter hint must identify one S-parameter.")
+    # 人工图框与排除区直接参与提取，不修改原始图像。
+    from .image_path_editor import checked_box, edited_curves
+    # Codex说明(自动生成)： 计算并保存 plot_box，供后续语句继续读取或更新。
+    plot_box = checked_box(plot_box_override, rgb.shape) if plot_box_override is not None else _detect_plot_box(rgb)
+    # Codex说明(自动生成)： 检查条件 trace_specs is not None，根据结果选择后续执行路径。
+    if trace_specs is not None:
+        # Codex说明(自动生成)： 计算并保存 curves，供后续语句继续读取或更新。
+        curves = edited_curves(rgb, plot_box, trace_specs, exclusion_boxes,
+            start_hz=start_hz, stop_hz=stop_hz, y_min_db=y_min_db,
+            y_max_db=y_max_db, spacing=spacing_value)
+        # Codex说明(自动生成)： 返回 DigitizationResult(image_width=rgb.shape[1], image_heig...，让调用方取得本函数的处理结果。
+        return DigitizationResult(image_width=rgb.shape[1], image_height=rgb.shape[0],
+            plot_box=plot_box, curves=attach_visual_review(curves, plot_box, rgb=rgb),
+            warnings=("人工路径：请复核身份、缺口和锚点。",), detected_parameter=normalized_hint)
+    # Codex说明(自动生成)： 检查条件 exclusion_boxes，根据结果选择后续执行路径。
+    if exclusion_boxes:
+        # 自动模式同样支持图例遮罩，像素副本仅供算法读取。
+        rgb = rgb.copy()
+        # Codex说明(自动生成)： 遍历 exclusion_boxes 中的 rectangle，逐项执行循环体逻辑。
+        for rectangle in exclusion_boxes:
+            # Codex说明(自动生成)： 计算并保存 (x1, y1, x2, y2)，供后续语句继续读取或更新。
+            x1,y1,x2,y2 = checked_box(rectangle,rgb.shape)
+            # Codex说明(自动生成)： 计算并保存 rgb[y1:y2 + 1, x1:x2 + 1]，供后续语句继续读取或更新。
+            rgb[y1:y2+1,x1:x2+1] = 255
     detected_parameter, warnings = (
         _read_parameter_with_ocr(image_path) if run_ocr else (None, ())
     )
@@ -3523,13 +3650,33 @@ def digitize_plot_image(
                 and curve.pixel_points[-1, 0] - curve.pixel_points[0, 0] + 1
                 >= round(width * 0.45)
             )
+            or (
+                np.ptp(curve.rgb) <= 5
+                and curve.pixel_points[0, 0] - left <= max(3, width * 0.02)
+                and curve.frequency_hz.size >= max(20, round(width * 0.30))
+                and curve.frequency_hz.size / (curve.pixel_points[-1, 0] - curve.pixel_points[0, 0] + 1) >= 0.85
+            )
         )
         if not curves:
             raise ValueError(
                 "No supported coloured magnitude trace or achromatic magnitude "
                 "trace was found in the plot area."
             )
-    curves = attach_visual_review(curves, plot_box)
+    # Association uses column centres. Recover isolated source-supported tips
+    # afterwards, without changing identities, sparse coverage, or shared runs.
+    left, top, right, bottom = plot_box
+    crop = rgb[top:bottom + 1, left:right + 1]
+    refined = []
+    for curve in curves:
+        local_points = curve.pixel_points - (left, top)
+        compatible = [other for other in curves if other is not curve and _colour_identity_is_compatible(np.asarray(curve.rgb, float), np.asarray(other.rgb, float))]
+        # Same-colour tracks cannot independently claim a merged turning lobe.
+        # Retain their association and let pixel review expose the ambiguity.
+        if not compatible:
+            protected = [index for index, source in enumerate(curve.sample_provenance) if source != "observed"]
+            local_points = preserve_raster_turns(colour_evidence_mask(crop, curve.rgb), local_points, protected_indexes=protected)
+        refined.append(replace(curve, pixel_points=local_points + (left, top), magnitude_db=y_max_db - local_points[:, 1] / max(bottom - top, 1) * (y_max_db - y_min_db)))
+    curves = attach_visual_review(refined, plot_box, rgb=rgb)
     return DigitizationResult(
         image_width=rgb.shape[1],
         image_height=rgb.shape[0],

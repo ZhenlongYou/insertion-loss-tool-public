@@ -63,7 +63,7 @@ class WebviewGuiTests(unittest.TestCase):
     def _stub_digitization(*_args: object, **kwargs: object) -> DigitizationResult:
         # Codex说明(自动生成)： 计算并保存 points，供后续语句继续读取或更新。
         points = int(kwargs.pop("_points", 5))
-        # Codex说明(自动生成)： 计算并保存 frequency，供后续语句继续读取或更新。
+        # 把原图水平像素位置映射到线性或对数频率，单位 Hz。
         frequency = np.linspace(
             float(kwargs["start_hz"]), float(kwargs["stop_hz"]), points
         )
@@ -589,7 +589,8 @@ class WebviewGuiTests(unittest.TestCase):
         self.assertIn('data-overlay-trace="${escapeHtml(curve.id)}"', html)
         self.assertIn('data-overlay-review="${escapeHtml(curve.id)}"', html)
         self.assertIn("review_regions", html)
-        self.assertIn("visual_confidence", html)
+        self.assertIn("image accuracy not assessed", html)
+        self.assertNotIn("heuristic score", html)
         self.assertIn("Review ${regions.length} highlighted", html)
         # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
         self.assertIn('data-trace-row="${escapeHtml(curve.id)}"', html)
@@ -628,7 +629,7 @@ class WebviewGuiTests(unittest.TestCase):
         # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
         self.assertIn('id="generate-network"', html)
         # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
-        self.assertIn('callApi("generate_datasheet_network",state.selectedNetwork)', html)
+        self.assertIn("callApi('generate_datasheet_network',pendingExport.index)", html)
         # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
         self.assertIn('id="open-image-output"', html)
         # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
@@ -759,6 +760,9 @@ class WebviewGuiTests(unittest.TestCase):
                 "insertion_loss_tool.webview_gui.OUTPUT_DIR", folder / "outputs"
             ):
                 # Codex说明(自动生成)： 计算并保存 first，供后续语句继续读取或更新。
+                review = api.preview_image_export(0)
+                self.assertTrue(review["ok"], review)
+                self.assertTrue(api.confirm_image_export(0, review["token"])["ok"])
                 first = api.generate_datasheet_network(0)
                 # Codex说明(自动生成)： 计算并保存 second，供后续语句继续读取或更新。
                 second = api.generate_datasheet_network(0)
@@ -862,6 +866,8 @@ class WebviewGuiTests(unittest.TestCase):
             "insertion_loss_tool.webview_gui.OUTPUT_DIR", Path(temp_dir)
         ):
             # Codex说明(自动生成)： 计算并保存 response，供后续语句继续读取或更新。
+            review = api.preview_image_export(0)
+            self.assertTrue(api.confirm_image_export(0, review["token"])["ok"])
             response = api.generate_datasheet_network(0)
 
             # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
@@ -924,6 +930,8 @@ class WebviewGuiTests(unittest.TestCase):
                 "insertion_loss_tool.webview_gui.OUTPUT_DIR", output_dir
             ):
                 # Codex说明(自动生成)： 计算并保存 response，供后续语句继续读取或更新。
+                review = api.preview_image_export(0)
+                self.assertTrue(api.confirm_image_export(0, review["token"])["ok"])
                 response = api.generate_datasheet_network(0)
 
             # Codex说明(自动生成)： 调用 self.assertFalse 检查测试期望，确认实际结果符合预期。
@@ -1065,13 +1073,15 @@ class WebviewGuiTests(unittest.TestCase):
             ],
             "traceHighlightSelected": True,
             "visualReviewOverlayCount": 1,
-            "visualReviewCardText": "Review 1 highlighted area · 72% confidence",
+            "visualReviewCardText": "Review 1 highlighted area · image accuracy not assessed",
             "visualReviewHelpText": "Orange dashed areas need visual review · 1 highlighted",
             "visualReviewMappingHint": "2 traces available · 1 need highlighted-area review · detected labels are hints",
             "visualReviewHighlightSelected": True,
             "unassignedOptionText": "Unassigned",
             "unassignedPreflightText": "Unassigned channels: S12, S21, S22. Choose a detected trace, Matched · exact zero, Return loss −20 dB, or Crosstalk −80 dB.",
             "candidateTraceCount": 2,
+            "candidateOverlayCount": 2,
+            "editorCalibrationSent": True,
             "candidateHasParameterSelect": False,
             "candidateListStatus": "2 trace candidates · Calibrate axes",
             "candidateTitle": "Trace Candidates · 2",
@@ -1081,6 +1091,10 @@ class WebviewGuiTests(unittest.TestCase):
         }
         # Codex说明(自动生成)： 调用 validate_renderer_probe，执行当前流程需要的具体操作或副作用。
         validate_renderer_probe(probe, "win32")
+        with self.assertRaisesRegex(RuntimeError, "trace candidates"):
+            validate_renderer_probe({**probe, "candidateOverlayCount": 0}, "darwin")
+        with self.assertRaisesRegex(RuntimeError, "unsaved X/Y"):
+            validate_renderer_probe({**probe, "editorCalibrationSent": False}, "darwin")
         with self.assertRaisesRegex(RuntimeError, "局部风险区"):
             validate_renderer_probe(
                 {**probe, "visualReviewOverlayCount": 0}, "darwin"
@@ -2246,6 +2260,12 @@ class WebviewGuiTests(unittest.TestCase):
                 ("S21", source),
             ):
                 self.assertTrue(api.set_mapping(0, parameter, choice)["ok"])
+            # Codex说明(自动生成)： 计算并保存 review，供后续语句继续读取或更新。
+            review = api.preview_image_export(0)
+            # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
+            self.assertTrue(review["ok"], review)
+            # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
+            self.assertTrue(api.confirm_image_export(0, review["token"])["ok"])
             generated = api.generate_datasheet_network(0)
             self.assertTrue(generated["ok"], generated)
             reread = read_touchstone(generated["output"])
@@ -2297,6 +2317,12 @@ class WebviewGuiTests(unittest.TestCase):
             self.assertTrue(api.set_mapping(0, "S11", "匹配 0")["ok"])
             self.assertTrue(api.set_mapping(0, "S22", "匹配 0")["ok"])
             self.assertTrue(api.set_mapping(0, "S21", source)["ok"])
+            # Codex说明(自动生成)： 计算并保存 review，供后续语句继续读取或更新。
+            review = api.preview_image_export(0)
+            # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
+            self.assertTrue(review["ok"], review)
+            # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
+            self.assertTrue(api.confirm_image_export(0, review["token"])["ok"])
             generated = api.generate_datasheet_network(0)
             self.assertTrue(generated["ok"], generated)
             reread = read_touchstone(generated["output"])
@@ -2400,7 +2426,7 @@ class WebviewGuiTests(unittest.TestCase):
         self.assertEqual(response["image_update"]["digitization"]["selection"], "optional")
         # Codex说明(自动生成)： 遍历 ('图1 A · SDD21', '图1 B · SDD21') 中的 source，逐项执行循环体逻辑。
         for source in ("图1 A · SDD21", "图1 B · SDD21"):
-            # Codex说明(自动生成)： 计算并保存 selected，供后续语句继续读取或更新。
+            # 选择当前累计代价最低的候选索引。
             selected = api.set_mapping(0, "SDD21", source)
             # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
             self.assertTrue(selected["ok"], selected)
@@ -2463,7 +2489,7 @@ class WebviewGuiTests(unittest.TestCase):
                 self.assertIn(source, network["mapping_options"][parameter])
                 # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
                 self.assertIn(source, network["mapping_options"][incompatible_parameter])
-                # Codex说明(自动生成)： 计算并保存 selected，供后续语句继续读取或更新。
+                # 选择当前累计代价最低的候选索引。
                 selected = api.set_mapping(0, incompatible_parameter, source)
                 # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
                 self.assertTrue(selected["ok"], selected)
@@ -2726,7 +2752,7 @@ class WebviewGuiTests(unittest.TestCase):
         for destination in network["mappings"]:
             # Codex说明(自动生成)： 调用 self.assertIn 检查测试期望，确认实际结果符合预期。
             self.assertIn(source, network["mapping_options"][destination])
-        # Codex说明(自动生成)： 计算并保存 selected，供后续语句继续读取或更新。
+        # 选择当前累计代价最低的候选索引。
         selected = api.set_mapping(0, "S12", source)
         # Codex说明(自动生成)： 调用 self.assertTrue 检查测试期望，确认实际结果符合预期。
         self.assertTrue(selected["ok"], selected)
@@ -3162,6 +3188,9 @@ class WebviewGuiTests(unittest.TestCase):
         self.assertEqual(
             exposed,
             {
+                "image_edit_recipe", "apply_image_recipe", "undo_image_recipe",
+                "export_image_asset", "preview_image_export", "confirm_image_export",
+                "set_image_network_model",
                 "choose_images",
                 "choose_input",
                 "choose_output",
