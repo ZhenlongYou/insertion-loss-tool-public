@@ -139,7 +139,10 @@
     .curve-control .curve-review { color:var(--soft); }
     .curve-control .curve-review.needs-review { color:var(--warning); }
     .curve-swatch { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 1px rgba(255,255,255,.28); }
-    .detail { grid-column:3; grid-row:1; padding:16px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; gap:9px; }
+    /* Keep the mapping row visible at the Windows runner's 1380x860 baseline.
+       The detail card still has generous spacing, while the smaller vertical
+       chrome leaves a few pixels of headroom for WebView2 font metrics. */
+    .detail { grid-column:3; grid-row:1; padding:12px; display:grid; grid-template-rows:auto auto auto minmax(0,1fr) auto; gap:7px; }
     .detail-top { display:grid; grid-template-columns:minmax(145px,1fr) 100px; gap:9px; align-items:end; }
     .detail-top .field:nth-child(3), .detail-top .check { grid-column:1/-1; }
     .frequency-row { display:grid; grid-template-columns:minmax(0,1fr); gap:9px; align-items:end; }
